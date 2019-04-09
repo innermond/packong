@@ -1,4 +1,4 @@
-package main
+package svg
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ const (
 	emptyclose = "/>\n"
 )
 
-func svgStart(w float64, h float64, unit string, plain bool) string {
+func Start(w float64, h float64, unit string, plain bool) string {
 	s := fmt.Sprintf(svginitfmt, svgtop, w, unit, h, unit) + " " +
 		fmt.Sprintf(vbfmt, 0.0, 0.0, w, h) + svgns
 	if plain == false {
@@ -30,11 +30,11 @@ func svgStart(w float64, h float64, unit string, plain bool) string {
 	return s
 }
 
-func svgEnd(s string) string {
+func End(s string) string {
 	return s + "\n</svg>\n"
 }
 
-func svgGroupStart(ss ...string) string {
+func GroupStart(ss ...string) string {
 	gs := ""
 	for _, s := range ss {
 		gs += s + " "
@@ -43,16 +43,16 @@ func svgGroupStart(ss ...string) string {
 	return fmt.Sprintf("<g %s>", gs)
 }
 
-func svgGroupEnd(g string) string {
+func GroupEnd(g string) string {
 	return g + "\n</g>\n"
 }
 
-func svgRect(x float64, y float64, w float64, h float64, s string) string {
+func Rect(x float64, y float64, w float64, h float64, s string) string {
 	return fmt.Sprintf(`
 <rect x="%f" y="%f" width="%f" height="%f" style="%s" />`, x, y, w, h, s)
 }
 
-func svgText(x float64, y float64, txt string, s string) string {
+func Text(x float64, y float64, txt string, s string) string {
 	return fmt.Sprintf(`
 <text x="%f" y="%f" style="%s" >
 %s

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/innermond/2pak/internal/svg"
 	"github.com/innermond/pak"
 )
 
@@ -170,13 +171,13 @@ func main() {
 					panic("cannot create file")
 				}
 
-				s := svgStart(width, height, unit, plain)
+				s := svg.Start(width, height, unit, plain)
 				si, err := outsvg(bin.Boxes, topleftmargin, plain, showDim)
 				if err != nil {
 					f.Close()
 					os.Remove(fn)
 				} else {
-					s += svgEnd(si)
+					s += svg.End(si)
 
 					_, err = f.WriteString(s)
 					if err != nil {

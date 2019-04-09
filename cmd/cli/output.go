@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/innermond/2pak/internal/svg"
 	"github.com/innermond/pak"
 )
 
@@ -18,13 +19,13 @@ func outsvg(blocks []*pak.Box, topleftmargin float64, plain bool, showDim bool) 
 		return "", errors.New("no blocks")
 	}
 
-	gb := svgGroupStart("id=\"blocks\"")
+	gb := svg.GroupStart("id=\"blocks\"")
 	if !plain {
-		gb = svgGroupStart("id=\"blocks\"", "inkscape:label=\"blocks\"", "inkscape:groupmode=\"layer\"")
+		gb = svg.GroupStart("id=\"blocks\"", "inkscape:label=\"blocks\"", "inkscape:groupmode=\"layer\"")
 	}
 	// first block
 	blk := blocks[0]
-	gb += svgRect(blk.X,
+	gb += svg.Rect(blk.X,
 		blk.Y,
 		blk.W,
 		blk.H,
@@ -35,7 +36,7 @@ func outsvg(blocks []*pak.Box, topleftmargin float64, plain bool, showDim bool) 
 		if blk != nil {
 			// blocks on the top edge must be shortened on height by a expand = half cutwidth
 			if blk.Y == topleftmargin {
-				gb += svgRect(blk.X,
+				gb += svg.Rect(blk.X,
 					blk.Y,
 					blk.W,
 					blk.H,
@@ -45,7 +46,7 @@ func outsvg(blocks []*pak.Box, topleftmargin float64, plain bool, showDim bool) 
 			}
 			// blocks on the left edge must be shortened on width by a expand = half cutwidth
 			if blk.X == topleftmargin {
-				gb += svgRect(blk.X,
+				gb += svg.Rect(blk.X,
 					blk.Y,
 					blk.W,
 					blk.H,
@@ -54,7 +55,7 @@ func outsvg(blocks []*pak.Box, topleftmargin float64, plain bool, showDim bool) 
 				continue
 			}
 			// blocks that do not touch any big box edges keeps their expanded dimensions
-			gb += svgRect(blk.X,
+			gb += svg.Rect(blk.X,
 				blk.Y,
 				blk.W,
 				blk.H,
@@ -64,13 +65,13 @@ func outsvg(blocks []*pak.Box, topleftmargin float64, plain bool, showDim bool) 
 			return "", errors.New("unexpected unfit block")
 		}
 	}
-	gb = svgGroupEnd(gb)
+	gb = svg.GroupEnd(gb)
 
 	gt := ""
 	if showDim {
-		gt = svgGroupStart("id=\"dimensions\"")
+		gt = svg.GroupStart("id=\"dimensions\"")
 		if !plain {
-			gt = svgGroupStart("id=\"dimensions\"", "inkscape:label=\"dimensions\"", "inkscape:groupmode=\"layer\"")
+			gt = svg.GroupStart("id=\"dimensions\"", "inkscape:label=\"dimensions\"", "inkscape:groupmode=\"layer\"")
 		}
 		for _, blk := range blocks {
 			if blk != nil {
@@ -79,13 +80,13 @@ func outsvg(blocks []*pak.Box, topleftmargin float64, plain bool, showDim bool) 
 					x += "xR"
 				}
 				y := aproximateHeightText(len(x), blk.W)
-				gt += svgText(blk.X+blk.W/2, blk.Y+blk.H/2+y/3, // y/3 is totally empirical
+				gt += svg.Text(blk.X+blk.W/2, blk.Y+blk.H/2+y/3, // y/3 is totally empirical
 					x, "text-anchor:middle;font-size:"+fmt.Sprintf("%.2f", y)+";fill:#000")
 			} else {
 				return "", errors.New("unexpected unfit block")
 			}
 		}
-		gt = svgGroupEnd(gt)
+		gt = svg.GroupEnd(gt)
 	}
 	return gb + gt, nil
 }
