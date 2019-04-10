@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -66,13 +67,19 @@ func main() {
 	param()
 
 	wh := strings.Split(bigbox, "x")
+	switch len(wh) {
+	case 1:
+		wh = append(wh, wh[0])
+	case 0:
+		panicli("need to specify dimensions for big box")
+	}
 	width, err := strconv.ParseFloat(wh[0], 64)
 	if err != nil {
-		panic("can't get width")
+		panicli("can't get width")
 	}
 	height, err := strconv.ParseFloat(wh[1], 64)
 	if err != nil {
-		panic("can't get height")
+		panicli("can't get height")
 	}
 
 	dimensions := flag.Args()
@@ -80,14 +87,13 @@ func main() {
 	// we compensate expanding boxes with an entire cut width
 
 	strategies := map[string]*pak.Base{
-		"BestAreaFit":   &pak.Base{&pak.BestAreaFit{}},
-		"BestLongSide":  &pak.Base{&pak.BestLongSide{}},
-		"BestShortSide": &pak.Base{&pak.BestShortSide{}},
-		"BottomLeft":    &pak.Base{&pak.BottomLeft{}},
+		"BestAreaFit":      &pak.Base{&pak.BestAreaFit{}},
+		"BestLongSide":     &pak.Base{&pak.BestLongSide{}},
+		"BestShortSide":    &pak.Base{&pak.BestShortSide{}},
+		"BottomLeft":       &pak.Base{&pak.BottomLeft{}},
+		"BestSimilarRatio": &pak.Base{&pak.BestSimilarRatio{}},
 	}
 	wins := map[string][]float64{}
-	winingStrategyName := ""
-	prevDeltaAreas := 0.0
 	var (
 		boxes     []*pak.Box
 		lenboxes  int
@@ -168,7 +174,7 @@ func main() {
 
 				f, err := os.Create(fn)
 				if err != nil {
-					panic("cannot create file")
+					panicli("cannot create file")
 				}
 
 				s := svg.Start(width, height, unit, plain)
@@ -181,30 +187,32 @@ func main() {
 
 					_, err = f.WriteString(s)
 					if err != nil {
-						panic(err)
+						panicli(err)
 					}
 					f.Close()
 				}
 			}
 		}
 		wins[strategyName] = []float64{usedArea, boxesArea, boxesPerim, float64(inx)}
-		currDeltaArea := usedArea - boxesArea
-		if currDeltaArea < prevDeltaAreas {
-			winingStrategyName = strategyName
-		}
-		prevDeltaAreas = currDeltaArea
 	}
 
 	k := 1000.0
 	k2 := k * k
 
+	smallestLostArea, prevSmallestLostArea := math.MaxFloat32, math.MaxFloat32
+	winingStrategyName := ""
 	for sn, st := range wins {
-		fmt.Printf("%s lost area %.2f\n", sn, st[0]/k2-st[1]/k2)
+		smallestLostArea = st[0]/k2 - st[1]/k2
+		fmt.Printf("%s lost area %.2f\n", sn, smallestLostArea)
+		if smallestLostArea <= prevSmallestLostArea {
+			prevSmallestLostArea = smallestLostArea
+			winingStrategyName = sn
+		}
 	}
 
 	best, ok := wins[winingStrategyName]
 	if !ok {
-		panic("no wining strategy")
+		panicli("no wining strategy")
 	}
 	usedArea, boxesArea, boxesPerim, numSheetsUsed := best[0], best[1], best[2], best[3]
 	lostArea := usedArea - boxesArea
@@ -216,4 +224,17 @@ func main() {
 	price := boxesArea*mu + lostArea*ml + boxesPerim*pp + pd
 	fmt.Printf("strategy %s boxes aria %.2f used aria %.2f lost aria %.2f procent %.2f%% perim %.2f price %.2f remaining boxes %d %s sheets used %.0f\n",
 		winingStrategyName, boxesArea, usedArea, lostArea, procentArea, boxesPerim, price, lenboxes, pak.BoxCode(boxes), numSheetsUsed)
+}
+
+func panicli(msg interface{}) {
+	var code int
+
+	switch msg.(type) {
+	case string:
+		code = 0
+	case error:
+		code = 1
+	}
+	fmt.Fprintln(os.Stdout, msg)
+	os.Exit(code)
 }
