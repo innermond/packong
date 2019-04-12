@@ -7,13 +7,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/innermond/2pak/internal/svg"
 	"github.com/innermond/pak"
 )
 
 var (
-	dimensions string
+	dimensions []string
 
 	outname, unit, bigbox string
 
@@ -82,7 +83,7 @@ func main() {
 		panicli("can't get height")
 	}
 
-	dimensions := flag.Args()
+	dimensions = flag.Args()
 	// if the cut can eat half of its width along cutline
 	// we compensate expanding boxes with an entire cut width
 
@@ -94,107 +95,19 @@ func main() {
 		"BestSimilarRatio": &pak.Base{&pak.BestSimilarRatio{}},
 	}
 	wins := map[string][]float64{}
-	var (
-		boxes     []*pak.Box
-		lenboxes  int
-		remaining []*pak.Box
-	)
+	remnants := map[string][]*pak.Box{}
+	// TODO Adapt cycle for to goroutines
+	var wg sync.WaitGroup
+	wg.Add(len(strategies))
 	for strategyName, strategy := range strategies {
-		inx, usedArea, boxesArea, boxesPerim := 0, 0.0, 0.0, 0.0
-		boxes = boxesFromString(dimensions, cutwidth)
-		lenboxes = len(boxes)
-		for lenboxes > 0 {
-			bin := pak.NewBin(width, height, strategy)
-			remaining = []*pak.Box{}
-			maxx, maxy := 0.0, 0.0
-			// shrink all aria
-			width -= topleftmargin
-			height -= topleftmargin
-			// pack boxes into bin
-			for _, box := range boxes {
-				if !bin.Insert(box) {
-					remaining = append(remaining, box)
-					// cannot insert skyp to next box
-					continue
-				}
-
-				if topleftmargin == 0.0 {
-					// all boxes touching top or left edges will need a half expand
-					if box.X == 0.0 && box.Y == 0.0 { // top left box
-						box.W -= cutwidth / 2
-						box.H -= cutwidth / 2
-					} else if box.X == 0.0 && box.Y != 0.0 { // leftmost column
-						box.W -= cutwidth / 2
-						box.Y -= cutwidth / 2
-					} else if box.Y == 0.0 && box.X != 0.0 { // topmost row
-						box.H -= cutwidth / 2
-						box.X -= cutwidth / 2
-					} else if box.X*box.Y != 0.0 { // the other boxes
-						box.X -= cutwidth / 2
-						box.Y -= cutwidth / 2
-					}
-				} else {
-					// no need to adjust W or H but X and Y
-					box.X += topleftmargin
-					box.Y += topleftmargin
-				}
-
-				boxesArea += (box.W * box.H)
-				boxesPerim += 2 * (box.W + box.H)
-
-				if box.Y+box.H-topleftmargin > maxy {
-					maxy = box.Y + box.H - topleftmargin
-				}
-				if box.X+box.W-topleftmargin > maxx {
-					maxx = box.X + box.W - topleftmargin
-				}
-			}
-			// enlarge aria back
-			width += topleftmargin
-			height += topleftmargin
-
-			if modeReportAria == "tight" {
-				maxx = width
-			} else if modeReportAria != "supertight" {
-				maxx = width
-				maxy = height
-			}
-			usedArea += (maxx * maxy)
-
-			inx++
-
-			if len(remaining) == lenboxes {
-				break
-			}
-			lenboxes = len(remaining)
-			boxes = remaining[:]
-
-			if output {
-				fn := fmt.Sprintf("%s.%d.%s.svg", outname, inx, strategyName)
-
-				f, err := os.Create(fn)
-				if err != nil {
-					panicli("cannot create file")
-				}
-
-				s := svg.Start(width, height, unit, plain)
-				si, err := outsvg(bin.Boxes, topleftmargin, plain, showDim)
-				if err != nil {
-					f.Close()
-					os.Remove(fn)
-				} else {
-					s += svg.End(si)
-
-					_, err = f.WriteString(s)
-					if err != nil {
-						panicli(err)
-					}
-					f.Close()
-				}
-			}
-		}
-		wins[strategyName] = []float64{usedArea, boxesArea, boxesPerim, float64(inx)}
+		strategyName := strategyName
+		strategy := strategy
+		go func() {
+			wins[strategyName], remnants[strategyName] = fit(width, height, strategyName, strategy)
+			defer wg.Done()
+		}()
 	}
+	wg.Wait()
 
 	k := 1000.0
 	k2 := k * k
@@ -214,6 +127,10 @@ func main() {
 	if !ok {
 		panicli("no wining strategy")
 	}
+	boxes, ok := remnants[winingStrategyName]
+	if !ok {
+		panicli("remnants error")
+	}
 	usedArea, boxesArea, boxesPerim, numSheetsUsed := best[0], best[1], best[2], best[3]
 	lostArea := usedArea - boxesArea
 	procentArea := boxesArea * 100 / usedArea
@@ -223,7 +140,7 @@ func main() {
 	boxesPerim = boxesPerim / k
 	price := boxesArea*mu + lostArea*ml + boxesPerim*pp + pd
 	fmt.Printf("strategy %s boxes aria %.2f used aria %.2f lost aria %.2f procent %.2f%% perim %.2f price %.2f remaining boxes %d %s sheets used %.0f\n",
-		winingStrategyName, boxesArea, usedArea, lostArea, procentArea, boxesPerim, price, lenboxes, pak.BoxCode(boxes), numSheetsUsed)
+		winingStrategyName, boxesArea, usedArea, lostArea, procentArea, boxesPerim, price, len(boxes), pak.BoxCode(boxes), numSheetsUsed)
 }
 
 func panicli(msg interface{}) {
@@ -237,4 +154,107 @@ func panicli(msg interface{}) {
 	}
 	fmt.Fprintln(os.Stdout, msg)
 	os.Exit(code)
+}
+
+func fit(width float64, height float64, strategyName string, strategy *pak.Base) ([]float64, []*pak.Box) {
+
+	var (
+		boxes     []*pak.Box
+		lenboxes  int
+		remaining []*pak.Box
+	)
+	inx, usedArea, boxesArea, boxesPerim := 0, 0.0, 0.0, 0.0
+	boxes = boxesFromString(dimensions, cutwidth)
+	lenboxes = len(boxes)
+	for lenboxes > 0 {
+		bin := pak.NewBin(width, height, strategy)
+		remaining = []*pak.Box{}
+		maxx, maxy := 0.0, 0.0
+		// shrink all aria
+		width -= topleftmargin
+		height -= topleftmargin
+		// pack boxes into bin
+		for _, box := range boxes {
+			if !bin.Insert(box) {
+				remaining = append(remaining, box)
+				// cannot insert skyp to next box
+				continue
+			}
+
+			if topleftmargin == 0.0 {
+				// all boxes touching top or left edges will need a half expand
+				if box.X == 0.0 && box.Y == 0.0 { // top left box
+					box.W -= cutwidth / 2
+					box.H -= cutwidth / 2
+				} else if box.X == 0.0 && box.Y != 0.0 { // leftmost column
+					box.W -= cutwidth / 2
+					box.Y -= cutwidth / 2
+				} else if box.Y == 0.0 && box.X != 0.0 { // topmost row
+					box.H -= cutwidth / 2
+					box.X -= cutwidth / 2
+				} else if box.X*box.Y != 0.0 { // the other boxes
+					box.X -= cutwidth / 2
+					box.Y -= cutwidth / 2
+				}
+			} else {
+				// no need to adjust W or H but X and Y
+				box.X += topleftmargin
+				box.Y += topleftmargin
+			}
+
+			boxesArea += (box.W * box.H)
+			boxesPerim += 2 * (box.W + box.H)
+
+			if box.Y+box.H-topleftmargin > maxy {
+				maxy = box.Y + box.H - topleftmargin
+			}
+			if box.X+box.W-topleftmargin > maxx {
+				maxx = box.X + box.W - topleftmargin
+			}
+		}
+		// enlarge aria back
+		width += topleftmargin
+		height += topleftmargin
+
+		if modeReportAria == "tight" {
+			maxx = width
+		} else if modeReportAria != "supertight" {
+			maxx = width
+			maxy = height
+		}
+		usedArea += (maxx * maxy)
+
+		inx++
+
+		if len(remaining) == lenboxes {
+			break
+		}
+		lenboxes = len(remaining)
+		boxes = remaining[:]
+
+		if output {
+			fn := fmt.Sprintf("%s.%d.%s.svg", outname, inx, strategyName)
+
+			f, err := os.Create(fn)
+			if err != nil {
+				panicli("cannot create file")
+			}
+
+			s := svg.Start(width, height, unit, plain)
+			si, err := outsvg(bin.Boxes, topleftmargin, plain, showDim)
+			if err != nil {
+				f.Close()
+				os.Remove(fn)
+			} else {
+				s += svg.End(si)
+
+				_, err = f.WriteString(s)
+				if err != nil {
+					panicli(err)
+				}
+				f.Close()
+			}
+		}
+	}
+	return []float64{usedArea, boxesArea, boxesPerim, float64(inx)}, remaining
 }
