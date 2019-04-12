@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 
@@ -40,6 +41,10 @@ func boxesFromString(dimensions []string, extra float64) (boxes []*pak.Box) {
 			boxes = append(boxes, &pak.Box{W: w + extra, H: h + extra, CanRotate: r})
 			n--
 		}
+		// sort descending by area
+		sort.Slice(boxes, func(i, j int) bool {
+			return boxes[i].W*boxes[i].H > boxes[j].W*boxes[j].H
+		})
 	}
 	return
 }

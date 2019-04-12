@@ -17,6 +17,8 @@ var (
 	dimensions []string
 
 	outname, unit, bigbox string
+	wh                    []string
+	width, height         float64
 
 	modeReportAria    string
 	tight, supertight bool
@@ -30,9 +32,13 @@ var (
 )
 
 func param() {
+	var err error
+
 	flag.StringVar(&outname, "o", "fit", "name of the maching project")
 	flag.StringVar(&unit, "u", "mm", "unit of measurements")
+
 	flag.StringVar(&bigbox, "bb", "0x0", "dimensions as \"wxh\" in units for bigest box / mother surface")
+
 	flag.BoolVar(&report, "r", true, "match report")
 	flag.BoolVar(&output, "f", false, "outputing files representing matching")
 	flag.BoolVar(&tight, "tight", false, "when true only aria used tighten by height is taken into account")
@@ -47,6 +53,23 @@ func param() {
 	flag.Float64Var(&topleftmargin, "margin", 0.0, "offset from top left margin")
 
 	flag.Parse()
+
+	wh = strings.Split(bigbox, "x")
+	switch len(wh) {
+	case 1:
+		wh = append(wh, wh[0])
+	case 0:
+		panicli("need to specify dimensions for big box")
+	}
+	width, err = strconv.ParseFloat(wh[0], 64)
+	if err != nil {
+		panicli("can't get width")
+	}
+	height, err = strconv.ParseFloat(wh[1], 64)
+	if err != nil {
+		panicli("can't get height")
+	}
+	dimensions = flag.Args()
 
 	flag.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -67,26 +90,6 @@ func param() {
 func main() {
 	param()
 
-	wh := strings.Split(bigbox, "x")
-	switch len(wh) {
-	case 1:
-		wh = append(wh, wh[0])
-	case 0:
-		panicli("need to specify dimensions for big box")
-	}
-	width, err := strconv.ParseFloat(wh[0], 64)
-	if err != nil {
-		panicli("can't get width")
-	}
-	height, err := strconv.ParseFloat(wh[1], 64)
-	if err != nil {
-		panicli("can't get height")
-	}
-
-	dimensions = flag.Args()
-	// if the cut can eat half of its width along cutline
-	// we compensate expanding boxes with an entire cut width
-
 	strategies := map[string]*pak.Base{
 		"BestAreaFit":      &pak.Base{&pak.BestAreaFit{}},
 		"BestLongSide":     &pak.Base{&pak.BestLongSide{}},
@@ -96,14 +99,18 @@ func main() {
 	}
 	wins := map[string][]float64{}
 	remnants := map[string][]*pak.Box{}
-	// TODO Adapt cycle for to goroutines
+	outputFn := map[string]func(){}
+	mx := sync.Mutex{}
+
 	var wg sync.WaitGroup
 	wg.Add(len(strategies))
 	for strategyName, strategy := range strategies {
 		strategyName := strategyName
 		strategy := strategy
 		go func() {
-			wins[strategyName], remnants[strategyName] = fit(width, height, strategyName, strategy)
+			mx.Lock()
+			wins[strategyName], remnants[strategyName], outputFn[strategyName] = fit(width, height, strategyName, strategy)
+			defer mx.Unlock()
 			defer wg.Done()
 		}()
 	}
@@ -131,6 +138,11 @@ func main() {
 	if !ok {
 		panicli("remnants error")
 	}
+	outFn, ok := outputFn[winingStrategyName]
+	if !ok {
+		panicli("outFn error")
+	}
+	outFn()
 	usedArea, boxesArea, boxesPerim, numSheetsUsed := best[0], best[1], best[2], best[3]
 	lostArea := usedArea - boxesArea
 	procentArea := boxesArea * 100 / usedArea
@@ -156,7 +168,7 @@ func panicli(msg interface{}) {
 	os.Exit(code)
 }
 
-func fit(width float64, height float64, strategyName string, strategy *pak.Base) ([]float64, []*pak.Box) {
+func fit(width float64, height float64, strategyName string, strategy *pak.Base) ([]float64, []*pak.Box, func()) {
 
 	var (
 		boxes     []*pak.Box
@@ -164,8 +176,13 @@ func fit(width float64, height float64, strategyName string, strategy *pak.Base)
 		remaining []*pak.Box
 	)
 	inx, usedArea, boxesArea, boxesPerim := 0, 0.0, 0.0, 0.0
+	fnOutput := func() {}
+
+	// if the cut can eat half of its width along cutline
+	// we compensate expanding boxes with an entire cut width
 	boxes = boxesFromString(dimensions, cutwidth)
 	lenboxes = len(boxes)
+
 	for lenboxes > 0 {
 		bin := pak.NewBin(width, height, strategy)
 		remaining = []*pak.Box{}
@@ -233,28 +250,30 @@ func fit(width float64, height float64, strategyName string, strategy *pak.Base)
 		boxes = remaining[:]
 
 		if output {
-			fn := fmt.Sprintf("%s.%d.%s.svg", outname, inx, strategyName)
+			fnOutput = func() {
+				fn := fmt.Sprintf("%s.%d.%s.svg", outname, inx, strategyName)
 
-			f, err := os.Create(fn)
-			if err != nil {
-				panicli("cannot create file")
-			}
-
-			s := svg.Start(width, height, unit, plain)
-			si, err := outsvg(bin.Boxes, topleftmargin, plain, showDim)
-			if err != nil {
-				f.Close()
-				os.Remove(fn)
-			} else {
-				s += svg.End(si)
-
-				_, err = f.WriteString(s)
+				f, err := os.Create(fn)
 				if err != nil {
-					panicli(err)
+					panicli("cannot create file")
 				}
-				f.Close()
+
+				s := svg.Start(width, height, unit, plain)
+				si, err := outsvg(bin.Boxes, topleftmargin, plain, showDim)
+				if err != nil {
+					f.Close()
+					os.Remove(fn)
+				} else {
+					s += svg.End(si)
+
+					_, err = f.WriteString(s)
+					if err != nil {
+						panicli(err)
+					}
+					f.Close()
+				}
 			}
 		}
 	}
-	return []float64{usedArea, boxesArea, boxesPerim, float64(inx)}, remaining
+	return []float64{usedArea, boxesArea, boxesPerim, float64(inx)}, remaining, fnOutput
 }
