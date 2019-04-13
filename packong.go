@@ -54,9 +54,6 @@ func (op *Op) Topleft(tl float64) *Op {
 }
 
 func (op *Op) Apearence(yesno ...bool) *Op {
-	if len(yesno) == 0 {
-	}
-
 	switch len(yesno) {
 	case 0:
 		op.plain = true
@@ -95,7 +92,7 @@ func (op *Op) Fit() {
 
 	wins := map[string][]float64{}
 	remnants := map[string][]*pak.Box{}
-	outputFn := map[string]func(){}
+	outputFn := map[string][]func(){}
 	mx := sync.Mutex{}
 
 	var wg sync.WaitGroup
@@ -141,11 +138,13 @@ func (op *Op) Fit() {
 	if !ok {
 		panic("remnants error")
 	}
-	outFn, ok := outputFn[winingStrategyName]
+	outFns, ok := outputFn[winingStrategyName]
 	if !ok {
-		panic("outFn error")
+		panic("outFns error")
 	}
-	outFn()
+	for _, fn := range outFns {
+		fn()
+	}
 	usedArea, boxesArea, boxesPerim, numSheetsUsed := best[0], best[1], best[2], best[3]
 	lostArea := usedArea - boxesArea
 	procentArea := boxesArea * 100 / usedArea
@@ -200,7 +199,7 @@ func (op *Op) boxesFromString(extra float64) (boxes []*pak.Box) {
 	return
 }
 
-func (op *Op) matchboxes(strategyName string, strategy *pak.Base) ([]float64, []*pak.Box, func()) {
+func (op *Op) matchboxes(strategyName string, strategy *pak.Base) ([]float64, []*pak.Box, []func()) {
 
 	var (
 		boxes     []*pak.Box
@@ -208,7 +207,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base) ([]float64, []
 		remaining []*pak.Box
 	)
 	inx, usedArea, boxesArea, boxesPerim := 0, 0.0, 0.0, 0.0
-	fnOutput := func() {}
+	fnOutput := []func(){func() {}}
 
 	// if the cut can eat half of its width along cutline
 	// we compensate expanding boxes with an entire cut width
@@ -282,29 +281,31 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base) ([]float64, []
 		boxes = remaining[:]
 
 		if op.outname != "" {
-			fnOutput = func() {
-				fn := fmt.Sprintf("%s.%d.%s.svg", op.outname, inx, strategyName)
+			func(inx int, boxes []*pak.Box) {
+				fnOutput = append(fnOutput, func() {
+					fn := fmt.Sprintf("%s.%d.%s.svg", op.outname, inx, strategyName)
 
-				f, err := os.Create(fn)
-				if err != nil {
-					panic("cannot create file")
-				}
-
-				s := svg.Start(op.width, op.height, op.unit, op.plain)
-				si, err := svg.Out(bin.Boxes, op.topleftmargin, op.plain, op.showDim)
-				if err != nil {
-					f.Close()
-					os.Remove(fn)
-				} else {
-					s += svg.End(si)
-
-					_, err = f.WriteString(s)
+					f, err := os.Create(fn)
 					if err != nil {
-						panic(err)
+						panic("cannot create file")
 					}
-					f.Close()
-				}
-			}
+
+					s := svg.Start(op.width, op.height, op.unit, op.plain)
+					si, err := svg.Out(boxes, op.topleftmargin, op.plain, op.showDim)
+					if err != nil {
+						f.Close()
+						os.Remove(fn)
+					} else {
+						s += svg.End(si)
+
+						_, err = f.WriteString(s)
+						if err != nil {
+							panic(err)
+						}
+						f.Close()
+					}
+				})
+			}(inx, bin.Boxes[:])
 		}
 	}
 	return []float64{usedArea, boxesArea, boxesPerim, float64(inx)}, remaining, fnOutput
