@@ -20,13 +20,12 @@ var (
 	wh                    []string
 	width, height         float64
 
-	modeReportAria    string
-	tight, supertight bool
+	modeReportAria string
+	tight          bool
 
-	report, output, plain, showDim bool
+	output, plain, showDim bool
 
 	cutwidth, topleftmargin float64
-	expandtocutwidth        bool
 
 	mu, ml, pp, pd float64
 )
@@ -39,10 +38,8 @@ func param() {
 
 	flag.StringVar(&bigbox, "bb", "0x0", "dimensions as \"wxh\" in units for bigest box / mother surface")
 
-	flag.BoolVar(&report, "r", true, "match report")
 	flag.BoolVar(&output, "f", false, "outputing files representing matching")
 	flag.BoolVar(&tight, "tight", false, "when true only aria used tighten by height is taken into account")
-	flag.BoolVar(&supertight, "supertight", false, "when true only aria used tighten bu height and width is taken into account")
 	flag.BoolVar(&plain, "inkscape", true, "when false will save svg as inkscape svg")
 	flag.BoolVar(&showDim, "showdim", false, "generate a layer with dimensions \"wxh\" regarding each box")
 	flag.Float64Var(&mu, "mu", 15.0, "used material price per 1 square meter")
@@ -80,9 +77,6 @@ func param() {
 			modeReportAria = "tight"
 		case "showdim":
 			showDim = true
-		case "supertight":
-			supertight = true
-			modeReportAria = "supertight"
 		}
 	})
 }
@@ -109,7 +103,7 @@ func main() {
 		strategy := strategy
 		go func() {
 			mx.Lock()
-			wins[strategyName], remnants[strategyName], outputFn[strategyName] = fit(width, height, strategyName, strategy)
+			wins[strategyName], remnants[strategyName], outputFn[strategyName] = matchboxes(width, height, strategyName, strategy)
 			defer mx.Unlock()
 			defer wg.Done()
 		}()
@@ -117,6 +111,12 @@ func main() {
 	wg.Wait()
 
 	k := 1000.0
+	switch unit {
+	case "cm":
+		k = 100.0
+	case "m":
+		k = 1.0
+	}
 	k2 := k * k
 
 	smallestLostArea, prevSmallestLostArea := math.MaxFloat32, math.MaxFloat32
@@ -168,7 +168,7 @@ func panicli(msg interface{}) {
 	os.Exit(code)
 }
 
-func fit(width float64, height float64, strategyName string, strategy *pak.Base) ([]float64, []*pak.Box, func()) {
+func matchboxes(width float64, height float64, strategyName string, strategy *pak.Base) ([]float64, []*pak.Box, func()) {
 
 	var (
 		boxes     []*pak.Box
@@ -235,7 +235,7 @@ func fit(width float64, height float64, strategyName string, strategy *pak.Base)
 
 		if modeReportAria == "tight" {
 			maxx = width
-		} else if modeReportAria != "supertight" {
+		} else {
 			maxx = width
 			maxy = height
 		}
