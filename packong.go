@@ -1,6 +1,7 @@
 package packong
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -153,8 +154,23 @@ func (op *Op) Fit() {
 	lostArea = lostArea / k2
 	boxesPerim = boxesPerim / k
 	price := boxesArea*op.mu + lostArea*op.ml + boxesPerim*op.pp + op.pd
-	fmt.Printf("strategy %s boxes aria %.2f used aria %.2f lost aria %.2f procent %.2f%% perim %.2f price %.2f remaining boxes %d %s sheets used %.0f\n",
-		winingStrategyName, boxesArea, usedArea, lostArea, procentArea, boxesPerim, price, len(boxes), pak.BoxCode(boxes), numSheetsUsed)
+	rep := Report{
+		WiningStrategyName: winingStrategyName,
+		BoxesArea:          boxesArea,
+		UsedArea:           usedArea, LostArea: lostArea,
+		ProcentArea:  procentArea,
+		BoxesPerim:   boxesPerim,
+		Price:        price,
+		UnfitLen:     len(boxes),
+		UnfitCode:    pak.BoxCode(boxes),
+		NumSheetUsed: numSheetsUsed,
+	}
+
+	b, err := json.Marshal(rep)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%s\n", b)
 }
 
 func (op *Op) boxesFromString(extra float64) (boxes []*pak.Box) {
@@ -309,4 +325,17 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base) ([]float64, []
 		}
 	}
 	return []float64{usedArea, boxesArea, boxesPerim, float64(inx)}, remaining, fnOutput
+}
+
+type Report struct {
+	WiningStrategyName string
+	BoxesArea          float64
+	UsedArea           float64
+	LostArea           float64
+	ProcentArea        float64
+	BoxesPerim         float64
+	Price              float64
+	UnfitLen           int
+	UnfitCode          string
+	NumSheetUsed       float64
 }
