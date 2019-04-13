@@ -19,7 +19,7 @@ var (
 
 	tight bool
 
-	output, plain, showDim bool
+	plain, showDim bool
 
 	cutwidth, topleftmargin float64
 
@@ -34,7 +34,6 @@ func param() {
 
 	flag.StringVar(&bigbox, "bb", "0x0", "dimensions as \"wxh\" in units for bigest box / mother surface")
 
-	flag.BoolVar(&output, "f", false, "outputing files representing matching")
 	flag.BoolVar(&tight, "tight", false, "when true only aria used tighten by height is taken into account")
 	flag.BoolVar(&plain, "inkscape", true, "when false will save svg as inkscape svg")
 	flag.BoolVar(&showDim, "showdim", false, "generate a layer with dimensions \"wxh\" regarding each box")
@@ -79,7 +78,11 @@ func param() {
 func main() {
 	param()
 
-	packong.NewOp(width, height, dimensions, unit).Price(mu, ml, pp, pd).Fit()
+	packong.NewOp(width, height, dimensions, unit).
+		Outname(outname).
+		Apearence(plain, showDim).
+		Price(mu, ml, pp, pd).
+		Fit()
 }
 
 func panicli(msg interface{}) {
