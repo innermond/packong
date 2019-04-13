@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/innermond/2pak/internal/svg"
+	"github.com/innermond/packong/internal/svg"
 	"github.com/innermond/pak"
 )
 

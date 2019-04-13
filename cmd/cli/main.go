@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/innermond/2pak/internal/svg"
+	"github.com/innermond/packong/internal/svg"
 	"github.com/innermond/pak"
 )
 
@@ -20,8 +20,7 @@ var (
 	wh                    []string
 	width, height         float64
 
-	modeReportAria string
-	tight          bool
+	tight bool
 
 	output, plain, showDim bool
 
@@ -74,7 +73,6 @@ func param() {
 			plain = false
 		case "tight":
 			tight = true
-			modeReportAria = "tight"
 		case "showdim":
 			showDim = true
 		}
@@ -184,12 +182,12 @@ func matchboxes(width float64, height float64, strategyName string, strategy *pa
 	lenboxes = len(boxes)
 
 	for lenboxes > 0 {
-		bin := pak.NewBin(width, height, strategy)
-		remaining = []*pak.Box{}
-		maxx, maxy := 0.0, 0.0
 		// shrink all aria
 		width -= topleftmargin
 		height -= topleftmargin
+		bin := pak.NewBin(width, height, strategy)
+		remaining = []*pak.Box{}
+		maxx, maxy := 0.0, 0.0
 		// pack boxes into bin
 		for _, box := range boxes {
 			if !bin.Insert(box) {
@@ -233,7 +231,7 @@ func matchboxes(width float64, height float64, strategyName string, strategy *pa
 		width += topleftmargin
 		height += topleftmargin
 
-		if modeReportAria == "tight" {
+		if tight {
 			maxx = width
 		} else {
 			maxx = width
