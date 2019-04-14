@@ -98,21 +98,28 @@ func main() {
 	fmt.Printf("%s\n", b)
 
 	if len(outname) > 0 {
-		fmt.Println(outs)
-		for _, out := range outs {
-			for nm, r := range out {
-				w, err := os.Create(nm)
-				if err != nil {
-					log.Println(err)
-					continue
-				}
-				defer w.Close()
-				_, err = io.Copy(w, r)
-				if err != nil {
-					log.Println(err)
-					continue
-				}
+		errs := writeFiles(outs)
+		if len(errs) > 0 {
+			log.Println(errs)
+		}
+	}
+}
+
+func writeFiles(outs []packong.FitReader) (errs []error) {
+	for _, out := range outs {
+		for nm, r := range out {
+			w, err := os.Create(nm)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			defer w.Close()
+			_, err = io.Copy(w, r)
+			if err != nil {
+				errs = append(errs, err)
+				continue
 			}
 		}
 	}
+	return
 }
