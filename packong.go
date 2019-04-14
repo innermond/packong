@@ -1,10 +1,10 @@
 package packong
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"math"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -89,11 +89,11 @@ func (op *Op) Price(mu, ml, pp, pd float64) *Op {
 	return op
 }
 
-func (op *Op) Fit() {
+func (op *Op) Fit() (*Report, []FitReader, error) {
 
 	wins := map[string][]float64{}
 	remnants := map[string][]*pak.Box{}
-	outputFn := map[string][]func(){}
+	outputFn := map[string][]FitReader{}
 	mx := sync.Mutex{}
 
 	var wg sync.WaitGroup
@@ -133,18 +133,15 @@ func (op *Op) Fit() {
 
 	best, ok := wins[winingStrategyName]
 	if !ok {
-		panic("no wining strategy")
+		return nil, nil, errors.New("no wining strategy")
 	}
 	boxes, ok := remnants[winingStrategyName]
 	if !ok {
-		panic("remnants error")
+		return nil, nil, errors.New("remnants error")
 	}
 	outFns, ok := outputFn[winingStrategyName]
 	if !ok {
-		panic("outFns error")
-	}
-	for _, fn := range outFns {
-		fn()
+		return nil, nil, errors.New("outFns error")
 	}
 	usedArea, boxesArea, boxesPerim, numSheetsUsed := best[0], best[1], best[2], best[3]
 	lostArea := usedArea - boxesArea
@@ -154,23 +151,20 @@ func (op *Op) Fit() {
 	lostArea = lostArea / k2
 	boxesPerim = boxesPerim / k
 	price := boxesArea*op.mu + lostArea*op.ml + boxesPerim*op.pp + op.pd
-	rep := Report{
+	rep := &Report{
 		WiningStrategyName: winingStrategyName,
 		BoxesArea:          boxesArea,
-		UsedArea:           usedArea, LostArea: lostArea,
-		ProcentArea:  procentArea,
-		BoxesPerim:   boxesPerim,
-		Price:        price,
-		UnfitLen:     len(boxes),
-		UnfitCode:    pak.BoxCode(boxes),
-		NumSheetUsed: numSheetsUsed,
+		UsedArea:           usedArea,
+		LostArea:           lostArea,
+		ProcentArea:        procentArea,
+		BoxesPerim:         boxesPerim,
+		Price:              price,
+		UnfitLen:           len(boxes),
+		UnfitCode:          pak.BoxCode(boxes),
+		NumSheetUsed:       numSheetsUsed,
 	}
 
-	b, err := json.Marshal(rep)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%s\n", b)
+	return rep, outFns, nil
 }
 
 func (op *Op) boxesFromString(extra float64) (boxes []*pak.Box) {
@@ -215,7 +209,9 @@ func (op *Op) boxesFromString(extra float64) (boxes []*pak.Box) {
 	return
 }
 
-func (op *Op) matchboxes(strategyName string, strategy *pak.Base) ([]float64, []*pak.Box, []func()) {
+type FitReader map[string]io.Reader
+
+func (op *Op) matchboxes(strategyName string, strategy *pak.Base) ([]float64, []*pak.Box, []FitReader) {
 
 	var (
 		boxes     []*pak.Box
@@ -223,7 +219,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base) ([]float64, []
 		remaining []*pak.Box
 	)
 	inx, usedArea, boxesArea, boxesPerim := 0, 0.0, 0.0, 0.0
-	fnOutput := []func(){func() {}}
+	fnOutput := []FitReader{}
 
 	// if the cut can eat half of its width along cutline
 	// we compensate expanding boxes with an entire cut width
@@ -298,29 +294,15 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base) ([]float64, []
 
 		if op.outname != "" {
 			func(inx int, boxes []*pak.Box) {
-				fnOutput = append(fnOutput, func() {
-					fn := fmt.Sprintf("%s.%d.%s.svg", op.outname, inx, strategyName)
+				fn := fmt.Sprintf("%s.%d.%s.svg", op.outname, inx, strategyName)
 
-					f, err := os.Create(fn)
-					if err != nil {
-						panic("cannot create file")
-					}
-
-					s := svg.Start(op.width, op.height, op.unit, op.plain)
-					si, err := svg.Out(boxes, op.topleftmargin, op.plain, op.showDim)
-					if err != nil {
-						f.Close()
-						os.Remove(fn)
-					} else {
-						s += svg.End(si)
-
-						_, err = f.WriteString(s)
-						if err != nil {
-							panic(err)
-						}
-						f.Close()
-					}
-				})
+				s := svg.Start(op.width, op.height, op.unit, op.plain)
+				si, err := svg.Out(boxes, op.topleftmargin, op.plain, op.showDim)
+				if err != nil {
+					return
+				}
+				s += svg.End(si)
+				fnOutput = append(fnOutput, FitReader{fn: strings.NewReader(s)})
 			}(inx, bin.Boxes[:])
 		}
 	}

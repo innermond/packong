@@ -1,8 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -51,15 +54,15 @@ func param() {
 	case 1:
 		wh = append(wh, wh[0])
 	case 0:
-		panicli("need to specify dimensions for big box")
+		panic("need to specify dimensions for big box")
 	}
 	width, err = strconv.ParseFloat(wh[0], 64)
 	if err != nil {
-		panicli("can't get width")
+		panic("can't get width")
 	}
 	height, err = strconv.ParseFloat(wh[1], 64)
 	if err != nil {
-		panicli("can't get height")
+		panic("can't get height")
 	}
 	dimensions = flag.Args()
 
@@ -78,22 +81,38 @@ func param() {
 func main() {
 	param()
 
-	packong.NewOp(width, height, dimensions, unit).
+	rep, outs, err := packong.NewOp(width, height, dimensions, unit).
 		Outname(outname).
 		Apearence(plain, showDim).
 		Price(mu, ml, pp, pd).
 		Fit()
-}
 
-func panicli(msg interface{}) {
-	var code int
-
-	switch msg.(type) {
-	case string:
-		code = 0
-	case error:
-		code = 1
+	if err != nil {
+		panic(err)
 	}
-	fmt.Fprintln(os.Stdout, msg)
-	os.Exit(code)
+
+	b, err := json.Marshal(rep)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%s\n", b)
+
+	if len(outname) > 0 {
+		fmt.Println(outs)
+		for _, out := range outs {
+			for nm, r := range out {
+				w, err := os.Create(nm)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
+				defer w.Close()
+				_, err = io.Copy(w, r)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
+			}
+		}
+	}
 }
