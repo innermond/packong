@@ -32,7 +32,7 @@ var (
 func param() {
 	var err error
 
-	flag.StringVar(&outname, "o", "fit", "name of the maching project")
+	flag.StringVar(&outname, "o", "", "name of the maching project")
 	flag.StringVar(&unit, "u", "mm", "unit of measurements")
 
 	flag.StringVar(&bigbox, "bb", "0x0", "dimensions as \"wxh\" in units for bigest box / mother surface")
@@ -83,7 +83,7 @@ func main() {
 
 	rep, outs, err := packong.NewOp(width, height, dimensions, unit).
 		Outname(outname).
-		Apearence(plain, showDim).
+		Appearance(plain, showDim).
 		Price(mu, ml, pp, pd).
 		Fit()
 

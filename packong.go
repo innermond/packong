@@ -54,7 +54,7 @@ func (op *Op) Topleft(tl float64) *Op {
 	return op
 }
 
-func (op *Op) Apearence(yesno ...bool) *Op {
+func (op *Op) Appearance(yesno ...bool) *Op {
 	switch len(yesno) {
 	case 0:
 		op.plain = true
