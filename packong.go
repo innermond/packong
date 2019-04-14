@@ -54,6 +54,11 @@ func (op *Op) Topleft(tl float64) *Op {
 	return op
 }
 
+func (op *Op) Tight(t bool) *Op {
+	op.tight = t
+	return op
+}
+
 func (op *Op) Appearance(yesno ...bool) *Op {
 	switch len(yesno) {
 	case 0:
@@ -124,7 +129,6 @@ func (op *Op) Fit() (*Report, []FitReader, error) {
 	winingStrategyName := ""
 	for sn, st := range wins {
 		smallestLostArea = st[0]/k2 - st[1]/k2
-		fmt.Printf("%s lost area %.2f\n", sn, smallestLostArea)
 		if smallestLostArea <= prevSmallestLostArea {
 			prevSmallestLostArea = smallestLostArea
 			winingStrategyName = sn
