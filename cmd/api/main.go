@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/innermond/packong"
+	"github.com/pkg/errors"
 )
 
 func main() {
@@ -42,73 +43,74 @@ func fitBoxes(w http.ResponseWriter, r *http.Request) {
 
 	str = r.FormValue("width")
 	width, err = strconv.ParseFloat(str, 64)
-	if err != nil {
-		panic("can't get width")
+	if werr(w, err, 500, "can't get width") {
+		return
 	}
 
 	str = r.FormValue("height")
 	height, err = strconv.ParseFloat(str, 64)
-	if err != nil {
-		panic("can't get height")
+	if werr(w, err, 500, "can't get height") {
+		return
 	}
 
 	str = r.FormValue("cutwidth")
 	cutwidth, err = strconv.ParseFloat(str, 64)
-	if err != nil {
-		panic("can't get cutwidth")
+	if werr(w, err, 500, "can't get cutwidth") {
+		return
 	}
 
 	str = r.FormValue("mu")
 	mu, err = strconv.ParseFloat(str, 64)
-	if err != nil {
-		panic("can't get mu")
+	if werr(w, err, 500, "can't get mu") {
+		return
 	}
 
 	str = r.FormValue("ml")
 	ml, err = strconv.ParseFloat(str, 64)
-	if err != nil {
-		panic("can't get ml")
+	if werr(w, err, 500, "can't get ml") {
+		return
 	}
 
 	str = r.FormValue("pp")
 	pp, err = strconv.ParseFloat(str, 64)
-	if err != nil {
-		panic("can't get pp")
+	if werr(w, err, 500, "can't get pp") {
+		return
 	}
 
 	str = r.FormValue("pd")
 	pd, err = strconv.ParseFloat(str, 64)
-	if err != nil {
-		panic("can't get pd")
+	if werr(w, err, 500, "can't get pd") {
+		return
 	}
 
 	str = r.FormValue("topleftmargin")
 	topleftmargin, err = strconv.ParseFloat(str, 64)
-	if err != nil {
-		panic("can't get topleftmargin")
+	if werr(w, err, 500, "can't get topleftmargin") {
+		return
 	}
 
 	str = r.FormValue("tight")
 	tight, err = strconv.ParseBool(str)
-	if err != nil {
-		panic("can't get topleftmargin")
+	if werr(w, err, 500, "can't get topleftmargin") {
+		return
 	}
 
 	str = r.FormValue("plain")
 	plain, err = strconv.ParseBool(str)
-	if err != nil {
-		panic("can't get plain")
+	if werr(w, err, 500, "can't get plain") {
+		return
 	}
 
 	str = r.FormValue("showdim")
 	showDim, err = strconv.ParseBool(str)
-	if err != nil {
-		panic("can't get showdim")
+	if werr(w, err, 500, "can't get showdim") {
+		return
 	}
 
 	outname = r.FormValue("outname")
 	unit = r.FormValue("unit")
 	dimensions = strings.Fields(r.FormValue("dimensions"))
+
 	// second parameters outs will give svg
 	rep, _, err := packong.NewOp(width, height, dimensions, unit).
 		Outname(outname).
@@ -120,12 +122,19 @@ func fitBoxes(w http.ResponseWriter, r *http.Request) {
 		Fit()
 
 	if err != nil {
-		panic(err)
+		werr(w, err, 500, "packing error")
 	}
 
 	b, err := json.Marshal(rep)
 	if err != nil {
-		panic(err)
+		werr(w, err, 500, "json error")
 	}
 	io.Copy(w, bytes.NewReader(b))
+}
+
+func werr(w http.ResponseWriter, err error, code int, msg string) bool {
+	err = errors.Cause(err)
+	log.Printf("%v", err)
+	http.Error(w, msg, code)
+	return err != nil
 }
