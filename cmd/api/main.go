@@ -41,6 +41,11 @@ func fitBoxes(w http.ResponseWriter, r *http.Request) {
 		mu, ml, pp, pd float64
 	)
 
+	err = r.ParseForm()
+	if werr(w, err, 500, "can't parse form") {
+		return
+	}
+
 	str = r.FormValue("width")
 	width, err = strconv.ParseFloat(str, 64)
 	if werr(w, err, 500, "can't get width") {
@@ -91,7 +96,7 @@ func fitBoxes(w http.ResponseWriter, r *http.Request) {
 
 	str = r.FormValue("tight")
 	tight, err = strconv.ParseBool(str)
-	if werr(w, err, 500, "can't get topleftmargin") {
+	if werr(w, err, 500, "can't get tight") {
 		return
 	}
 
@@ -133,8 +138,12 @@ func fitBoxes(w http.ResponseWriter, r *http.Request) {
 }
 
 func werr(w http.ResponseWriter, err error, code int, msg string) bool {
+	if err == nil {
+		return false
+	}
+
 	err = errors.Cause(err)
 	log.Printf("%v", err)
 	http.Error(w, msg, code)
-	return err != nil
+	return true
 }
