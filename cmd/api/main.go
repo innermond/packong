@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -59,9 +60,13 @@ func fitBoxes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	str = r.FormValue("cutwidth")
-	cutwidth, err = strconv.ParseFloat(str, 64)
-	if werr(w, err, 500, "can't get cutwidth") {
-		return
+	if str == "" {
+		cutwidth = 0.0
+	} else {
+		cutwidth, err = strconv.ParseFloat(str, 64)
+		if werr(w, err, 500, "can't get cutwidth") {
+			return
+		}
 	}
 
 	str = r.FormValue("mu")
@@ -89,35 +94,60 @@ func fitBoxes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	str = r.FormValue("topleftmargin")
-	topleftmargin, err = strconv.ParseFloat(str, 64)
-	if werr(w, err, 500, "can't get topleftmargin") {
-		return
+	if str == "" {
+		topleftmargin = 0.0
+	} else {
+		topleftmargin, err = strconv.ParseFloat(str, 64)
+		if werr(w, err, 500, "can't get topleftmargin") {
+			return
+		}
 	}
 
 	str = r.FormValue("tight")
-	tight, err = strconv.ParseBool(str)
-	if werr(w, err, 500, "can't get tight") {
-		return
+	if str == "" {
+		tight = true
+	} else {
+		tight, err = strconv.ParseBool(str)
+		if werr(w, err, 500, "can't get tight") {
+			return
+		}
 	}
 
 	str = r.FormValue("plain")
-	plain, err = strconv.ParseBool(str)
-	if werr(w, err, 500, "can't get plain") {
-		return
+	if str == "" {
+		plain = true
+	} else {
+		plain, err = strconv.ParseBool(str)
+		if werr(w, err, 500, "can't get plain") {
+			return
+		}
 	}
 
 	str = r.FormValue("showdim")
-	showDim, err = strconv.ParseBool(str)
-	if werr(w, err, 500, "can't get showdim") {
-		return
+	if str == "" {
+		plain = true
+	} else {
+		showDim, err = strconv.ParseBool(str)
+		if werr(w, err, 500, "can't get showdim") {
+			return
+		}
 	}
 
 	outname = r.FormValue("outname")
+
 	unit = r.FormValue("unit")
+	if unit == "" {
+		unit = "mm"
+	}
+
 	dimensions = strings.Fields(r.FormValue("dimensions"))
+	if len(dimensions) == 0 {
+		werr(w, errors.New("dimensions required"), 400, "dimensions required")
+		return
+	}
 
 	// second parameters outs will give svg
-	rep, _, err := packong.NewOp(width, height, dimensions, unit).
+	rep, outs, err := packong.NewOp(width, height, dimensions, unit).
 		Outname(outname).
 		Tight(tight).
 		Topleft(topleftmargin).
@@ -128,13 +158,53 @@ func fitBoxes(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		werr(w, err, 500, "packing error")
+		return
 	}
 
-	b, err := json.Marshal(rep)
+	var (
+		svgs map[string]string
+		errs []error
+	)
+	if len(outname) > 0 {
+		svgs, errs = writeSvg(outs)
+		if len(errs) > 0 {
+			werr(w, errs[0], 500, "json error")
+			return
+		}
+	}
+	out := struct {
+		Rep  *packong.Report
+		Svgs map[string]string
+	}{
+		rep,
+		svgs,
+	}
+	b, err := json.Marshal(out)
 	if err != nil {
 		werr(w, err, 500, "json error")
+		return
 	}
 	io.Copy(w, bytes.NewReader(b))
+}
+
+func writeSvg(outs []packong.FitReader) (svgs map[string]string, errs []error) {
+	var (
+		b   []byte
+		err error
+	)
+
+	svgs = map[string]string{}
+	for _, out := range outs {
+		for nm, r := range out {
+			b, err = ioutil.ReadAll(r)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			svgs[nm] = string(b)
+		}
+	}
+	return
 }
 
 func werr(w http.ResponseWriter, err error, code int, msg string) bool {
