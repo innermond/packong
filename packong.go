@@ -35,6 +35,7 @@ type Op struct {
 	cutwidth, topleftmargin float64
 
 	mu, ml, pp, pd float64
+	greedy         bool
 }
 
 func NewOp(w, h float64, dd []string, u string) *Op {
@@ -46,6 +47,8 @@ func NewOp(w, h float64, dd []string, u string) *Op {
 
 		tight: true,
 		plain: true,
+
+		greedy: false,
 	}
 }
 
@@ -91,6 +94,11 @@ func (op *Op) Price(mu, ml, pp, pd float64) *Op {
 	op.ml = ml
 	op.pp = pp
 	op.pd = pd
+	return op
+}
+
+func (op *Op) Greedy(mood bool) *Op {
+	op.greedy = mood
 	return op
 }
 
@@ -155,6 +163,9 @@ func (op *Op) Fit() (*Report, []FitReader, error) {
 	lostArea = lostArea / k2
 	boxesPerim = boxesPerim / k
 	price := boxesArea*op.mu + lostArea*op.ml + boxesPerim*op.pp + op.pd
+	if op.greedy {
+		price = boxesArea*op.mu + lostArea*op.mu + boxesPerim*op.pp + op.pd
+	}
 	rep := &Report{
 		WiningStrategyName: winingStrategyName,
 		BoxesArea:          boxesArea,

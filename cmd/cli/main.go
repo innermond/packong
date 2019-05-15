@@ -22,7 +22,7 @@ var (
 
 	tight bool
 
-	plain, showDim bool
+	plain, showDim, greedy bool
 
 	cutwidth, topleftmargin float64
 
@@ -40,6 +40,8 @@ func param() {
 	flag.BoolVar(&tight, "tight", false, "when true only aria used tighten by height is taken into account")
 	flag.BoolVar(&plain, "inkscape", true, "when false will save svg as inkscape svg")
 	flag.BoolVar(&showDim, "showdim", false, "generate a layer with dimensions \"wxh\" regarding each box")
+	flag.BoolVar(&greedy, "greedy", false, "when calculating price material's area lost is considered at full working price")
+
 	flag.Float64Var(&mu, "mu", 15.0, "used material price per 1 square meter")
 	flag.Float64Var(&ml, "ml", 5.0, "lost material price per 1 square meter")
 	flag.Float64Var(&pp, "pp", 0.25, "perimeter price per 1 linear meter; used for evaluating cuts price")
@@ -74,6 +76,8 @@ func param() {
 			tight = true
 		case "showdim":
 			showDim = true
+		case "greedy":
+			greedy = true
 		}
 	})
 }
@@ -85,6 +89,7 @@ func main() {
 		Outname(outname).
 		Appearance(plain, showDim).
 		Price(mu, ml, pp, pd).
+		Greedy(greedy).
 		Fit()
 
 	if err != nil {
