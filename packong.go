@@ -34,12 +34,15 @@ type Op struct {
 
 	cutwidth, topleftmargin float64
 
-	mu, ml, pp, pd float64
-	greedy         bool
+	mu, ml, pp, pd        float64
+	greedy, vendorsellint bool
+
+	// scale factors: k is for lenghts, k2 is for areas
+	k, k2 float64
 }
 
 func NewOp(w, h float64, dd []string, u string) *Op {
-	return &Op{
+	op := &Op{
 		width:      w,
 		height:     h,
 		dimensions: dd,
@@ -48,8 +51,13 @@ func NewOp(w, h float64, dd []string, u string) *Op {
 		tight: true,
 		plain: true,
 
-		greedy: false,
+		greedy:        false,
+		vendorsellint: true,
 	}
+
+	op.k, op.k2 = op.kk()
+
+	return op
 }
 
 func (op *Op) Topleft(tl float64) *Op {
@@ -102,6 +110,24 @@ func (op *Op) Greedy(mood bool) *Op {
 	return op
 }
 
+func (op *Op) VendorSellInt(sell bool) *Op {
+	op.vendorsellint = sell
+	return op
+}
+
+func (op *Op) kk() (float64, float64) {
+	k := 1000.0
+	switch op.unit {
+	case "cm":
+		k = 100.0
+	case "m":
+		k = 1.0
+	}
+	k2 := k * k
+
+	return k, k2
+}
+
 func (op *Op) Fit() (*Report, []FitReader, error) {
 
 	wins := map[string][]float64{}
@@ -124,19 +150,10 @@ func (op *Op) Fit() (*Report, []FitReader, error) {
 	}
 	wg.Wait()
 
-	k := 1000.0
-	switch op.unit {
-	case "cm":
-		k = 100.0
-	case "m":
-		k = 1.0
-	}
-	k2 := k * k
-
 	smallestLostArea, prevSmallestLostArea := math.MaxFloat32, math.MaxFloat32
 	winingStrategyName := ""
 	for sn, st := range wins {
-		smallestLostArea = st[0]/k2 - st[1]/k2
+		smallestLostArea = st[0]/op.k2 - st[1]/op.k2
 		if smallestLostArea <= prevSmallestLostArea {
 			prevSmallestLostArea = smallestLostArea
 			winingStrategyName = sn
@@ -155,13 +172,17 @@ func (op *Op) Fit() (*Report, []FitReader, error) {
 	if !ok {
 		return nil, nil, errors.New("outFns error")
 	}
-	usedArea, boxesArea, boxesPerim, numSheetsUsed := best[0], best[1], best[2], best[3]
+	usedArea, vendoredArea, boxesArea, boxesPerim, numSheetsUsed := best[0], best[1], best[2], best[3], best[4]
 	lostArea := usedArea - boxesArea
+	if op.vendorsellint {
+		lostArea = vendoredArea - boxesArea
+	}
 	procentArea := boxesArea * 100 / usedArea
-	boxesArea = boxesArea / k2
-	usedArea = usedArea / k2
-	lostArea = lostArea / k2
-	boxesPerim = boxesPerim / k
+	boxesArea = boxesArea / op.k2
+	usedArea = usedArea / op.k2
+	vendoredArea = vendoredArea / op.k2
+	lostArea = lostArea / op.k2
+	boxesPerim = boxesPerim / op.k
 	price := boxesArea*op.mu + lostArea*op.ml + boxesPerim*op.pp + op.pd
 	if op.greedy {
 		price = boxesArea*op.mu + lostArea*op.mu + boxesPerim*op.pp + op.pd
@@ -170,6 +191,7 @@ func (op *Op) Fit() (*Report, []FitReader, error) {
 		WiningStrategyName: winingStrategyName,
 		BoxesArea:          boxesArea,
 		UsedArea:           usedArea,
+		VendoredArea:       vendoredArea,
 		LostArea:           lostArea,
 		ProcentArea:        procentArea,
 		BoxesPerim:         boxesPerim,
@@ -233,7 +255,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base) ([]float64, []
 		lenboxes  int
 		remaining []*pak.Box
 	)
-	inx, usedArea, boxesArea, boxesPerim := 0, 0.0, 0.0, 0.0
+	inx, usedArea, vendoredArea, boxesArea, boxesPerim := 0, 0.0, 0.0, 0.0, 0.0
 	fnOutput := []FitReader{}
 
 	// if the cut can eat half of its width along cutline
@@ -297,7 +319,14 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base) ([]float64, []
 			maxx = op.width
 			maxy = op.height
 		}
+
 		usedArea += (maxx * maxy)
+		if op.vendorsellint {
+			// vendors sells integers so convert the maxy into meters, find closest integer and then convert to mm
+			vendoredArea += math.Ceil(maxy/op.k) * op.k * maxx
+		} else {
+			vendoredArea = usedArea
+		}
 
 		inx++
 
@@ -321,13 +350,14 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base) ([]float64, []
 			}(inx, bin.Boxes[:])
 		}
 	}
-	return []float64{usedArea, boxesArea, boxesPerim, float64(inx)}, remaining, fnOutput
+	return []float64{usedArea, vendoredArea, boxesArea, boxesPerim, float64(inx)}, remaining, fnOutput
 }
 
 type Report struct {
 	WiningStrategyName string
 	BoxesArea          float64
 	UsedArea           float64
+	VendoredArea       float64
 	LostArea           float64
 	ProcentArea        float64
 	BoxesPerim         float64
