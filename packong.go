@@ -14,6 +14,7 @@ import (
 	"github.com/innermond/pak"
 )
 
+// strategies used for packing boxes on mother box
 var strategies = map[string]*pak.Base{
 	"BestAreaFit":      &pak.Base{&pak.BestAreaFit{}},
 	"BestLongSide":     &pak.Base{&pak.BestLongSide{}},
@@ -22,20 +23,39 @@ var strategies = map[string]*pak.Base{
 	"BestSimilarRatio": &pak.Base{&pak.BestSimilarRatio{}},
 }
 
+// Op describe a boxes packing operation
 type Op struct {
+	// dimensions's boxes
 	dimensions []string
-
-	outname, unit string
+	// filename of a graphic file (svg) with boxes packed
+	outname string
+	// measurement unit: mm, cm
+	unit string
+	// mother box dimensions
 	width, height float64
-
+	// when true boxes area is surround exactly area boxes swarm
 	tight bool
+	// plain FALSE indicates svg output is as-inkscape
+	plain bool
+	// will rendered "wxh" dimensions pair on every box
+	showDim bool
+	// amount of expanding area's box in order to accomodate to loosing material
+	// when a physical cut (that has real width which eats from box area) occurs
+	cutwidth float64
+	// point from where boxes are lay down
+	topleftmargin float64
 
-	plain, showDim bool
+	// prices:
+	// mu - material used, a price that reflects man's work
+	// ml - material lost, a price regarding raw material - that's it it doesn't contains man's work
+	// pp - perimeter price, a price connected with number of cuts needed for breaking big sheet to needed pieces
+	// pd - move on the spot price
+	mu, ml, pp, pd float64
 
-	cutwidth, topleftmargin float64
-
-	mu, ml, pp, pd        float64
-	greedy, vendorsellint bool
+	// it considers lost material as valuable as used material
+	greedy bool
+	// vendors are selling lengths of sheets measured by natural numbers
+	vendorsellint bool
 
 	// scale factors: k is for lenghts, k2 is for areas
 	k, k2 float64
