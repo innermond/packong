@@ -79,8 +79,6 @@ func param() {
 			showDim = true
 		case "greedy":
 			greedy = true
-		case "vendorsellint":
-			vendorsellint = true
 		}
 	})
 }
