@@ -22,7 +22,7 @@ var (
 
 	tight bool
 
-	plain, showDim, greedy bool
+	plain, showDim, greedy, vendorsellint bool
 
 	cutwidth, topleftmargin float64
 
@@ -41,6 +41,7 @@ func param() {
 	flag.BoolVar(&plain, "inkscape", true, "when false will save svg as inkscape svg")
 	flag.BoolVar(&showDim, "showdim", false, "generate a layer with dimensions \"wxh\" regarding each box")
 	flag.BoolVar(&greedy, "greedy", false, "when calculating price material's area lost is considered at full working price")
+	flag.BoolVar(&vendorsellint, "vendorsellint", true, "vendors sells an integer number of sheet length")
 
 	flag.Float64Var(&mu, "mu", 15.0, "used material price per 1 square meter")
 	flag.Float64Var(&ml, "ml", 5.0, "lost material price per 1 square meter")
@@ -78,6 +79,8 @@ func param() {
 			showDim = true
 		case "greedy":
 			greedy = true
+		case "vendorsellint":
+			vendorsellint = true
 		}
 	})
 }
@@ -90,6 +93,7 @@ func main() {
 		Appearance(plain, showDim).
 		Price(mu, ml, pp, pd).
 		Greedy(greedy).
+		VendorSellInt(vendorsellint).
 		Fit()
 
 	if err != nil {
