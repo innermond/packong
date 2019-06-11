@@ -22,7 +22,7 @@ var (
 
 	tight bool
 
-	plain, showDim, greedy, vendorsellint bool
+	plain, showDim, greedy, vendorsellint, deep bool
 
 	cutwidth, topleftmargin float64
 
@@ -42,6 +42,7 @@ func param() {
 	flag.BoolVar(&showDim, "showdim", false, "generate a layer with dimensions \"wxh\" regarding each box")
 	flag.BoolVar(&greedy, "greedy", false, "when calculating price material's area lost is considered at full working price")
 	flag.BoolVar(&vendorsellint, "vendorsellint", true, "vendors sells an integer number of sheet length")
+	flag.BoolVar(&deep, "deep", false, "calculate all boxes permutations")
 
 	flag.Float64Var(&mu, "mu", 15.0, "used material price per 1 square meter")
 	flag.Float64Var(&ml, "ml", 5.0, "lost material price per 1 square meter")
@@ -79,6 +80,8 @@ func param() {
 			showDim = true
 		case "greedy":
 			greedy = true
+		case "deep":
+			deep = true
 		}
 	})
 }
@@ -92,7 +95,7 @@ func main() {
 		Price(mu, ml, pp, pd).
 		Greedy(greedy).
 		VendorSellInt(vendorsellint).
-		Fit()
+		Fit(deep)
 
 	if err != nil {
 		panic(err)
