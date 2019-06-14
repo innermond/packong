@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"html/template"
@@ -11,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/innermond/packong"
 )
@@ -117,11 +117,20 @@ func main() {
 		panic(err)
 	}
 
-	b, err := json.Marshal(rep)
-	if err != nil {
-		panic(err)
+	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	if rep.UnfitLen > 0 {
+		fmt.Fprintf(tw, "%s\t%d\n", "UnfitLen", rep.UnfitLen)
+		fmt.Fprintf(tw, "%s\t%s\n", "UnfitCode", rep.UnfitCode)
 	}
-	fmt.Printf("%s\n", b)
+	fmt.Fprintf(tw, "%s\t%s\n", "StragegyName", rep.WiningStrategyName)
+	fmt.Fprintf(tw, "%s\t%s\n", "Unit", unit)
+	fmt.Fprintf(tw, "%s\t%.2f\n", "BoxesArea", rep.BoxesArea)
+	fmt.Fprintf(tw, "%s\t%.2f\n", "UsedArea", rep.UsedArea)
+	fmt.Fprintf(tw, "%s\t%.2f\n", "LostArea", rep.LostArea)
+	fmt.Fprintf(tw, "%s\t%.2f\n", "VendoredArea", rep.VendoredArea)
+	fmt.Fprintf(tw, "%s\t%.2f\n", "ProcentArea", rep.ProcentArea)
+	fmt.Fprintf(tw, "%s\t%.2f\n", "NumSheetUsed", rep.NumSheetUsed)
+	fmt.Fprintf(tw, "%s\t%.2f\n", "Price", rep.Price)
 	if showOffer {
 		tpl, err := template.New("offer").Parse(selltext)
 		if err != nil {
@@ -132,9 +141,10 @@ func main() {
 		if err := tpl.Execute(&bb, sell); err != nil {
 			panic(err)
 		}
-		fmt.Printf("%s\n", bb.String())
+		dotted := strings.Repeat("-", 30)
+		fmt.Fprintf(tw, "%s\n%s\n", dotted, bb.String())
 	}
-
+	tw.Flush()
 	if len(outname) > 0 {
 		errs := writeFiles(outs)
 		if len(errs) > 0 {
