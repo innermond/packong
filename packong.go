@@ -148,7 +148,7 @@ func (op *Op) kk() (float64, float64) {
 	return k, k2
 }
 
-func (op *Op) Fit() (*Report, []FitReader, error) {
+func (op *Op) Fit(deep bool) (*Report, []FitReader, error) {
 
 	wins := map[string][]float64{}
 	remnants := map[string][]*pak.Box{}
@@ -156,24 +156,39 @@ func (op *Op) Fit() (*Report, []FitReader, error) {
 	mx := sync.Mutex{}
 
 	var wg sync.WaitGroup
-	wg.Add(len(strategies))
+	// if the cut can eat half of its width along cutline
+	// we compensate expanding boxes with an entire cut width
+	boxes := op.boxesFromString(op.cutwidth)
 
-	for strategyName, strategy := range strategies {
-		strategyName := strategyName
-		strategy := strategy
-		go func() {
-			mx.Lock()
-			wins[strategyName], remnants[strategyName], outputFn[strategyName] = op.matchboxes(strategyName, strategy)
-			defer mx.Unlock()
-			defer wg.Done()
-		}()
+	pp := [][]*pak.Box{boxes}
+	if deep {
+		pp = permutations(boxes)
+	}
+	lenall := len(pp) * len(strategies)
+	wg.Add(lenall)
+	for pix, permutated := range pp {
+		for strategyName, strategy := range strategies {
+			sn := strategyName + ".perm." + strconv.Itoa(pix)
+			s := strategy
+			bb := []*pak.Box{}
+			for _, box := range permutated {
+				bb = append(bb, &pak.Box{W: box.W, H: box.H, CanRotate: box.CanRotate})
+			}
+			// unsorted
+			go func(bb []*pak.Box) {
+				mx.Lock()
+				wins[sn], remnants[sn], outputFn[sn] = op.matchboxes(sn, s, bb)
+				defer mx.Unlock()
+				defer wg.Done()
+			}(bb)
+		}
 	}
 	wg.Wait()
 
 	smallestLostArea, prevSmallestLostArea := math.MaxFloat32, math.MaxFloat32
 	winingStrategyName := ""
 	for sn, st := range wins {
-		smallestLostArea = st[0]/op.k2 - st[1]/op.k2
+		smallestLostArea = st[0]/op.k2 - st[2]/op.k2
 		if smallestLostArea <= prevSmallestLostArea {
 			prevSmallestLostArea = smallestLostArea
 			winingStrategyName = sn
@@ -184,7 +199,7 @@ func (op *Op) Fit() (*Report, []FitReader, error) {
 	if !ok {
 		return nil, nil, errors.New("no wining strategy")
 	}
-	boxes, ok := remnants[winingStrategyName]
+	boxes, ok = remnants[winingStrategyName]
 	if !ok {
 		return nil, nil, errors.New("remnants error")
 	}
@@ -258,29 +273,35 @@ func (op *Op) boxesFromString(extra float64) (boxes []*pak.Box) {
 			n--
 		}
 
-		// sort descending by area
 		sort.Slice(boxes, func(i, j int) bool {
 			return boxes[i].W*boxes[i].H > boxes[j].W*boxes[j].H
 		})
+		/*switch sorting {
+		case 1:
+			sort.Slice(boxes, func(i, j int) bool {
+				return boxes[i].W*boxes[i].H < boxes[j].W*boxes[j].H
+			})
+		case -1:
+			// sort descending by area
+			sort.Slice(boxes, func(i, j int) bool {
+				return boxes[i].W*boxes[i].H > boxes[j].W*boxes[j].H
+			})
+		}*/
 	}
 	return
 }
 
 type FitReader map[string]io.Reader
 
-func (op *Op) matchboxes(strategyName string, strategy *pak.Base) ([]float64, []*pak.Box, []FitReader) {
+func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.Box) ([]float64, []*pak.Box, []FitReader) {
 
 	var (
-		boxes     []*pak.Box
 		lenboxes  int
 		remaining []*pak.Box
 	)
 	inx, usedArea, vendoredArea, boxesArea, boxesPerim := 0, 0.0, 0.0, 0.0, 0.0
 	fnOutput := []FitReader{}
 
-	// if the cut can eat half of its width along cutline
-	// we compensate expanding boxes with an entire cut width
-	boxes = op.boxesFromString(op.cutwidth)
 	lenboxes = len(boxes)
 
 	for lenboxes > 0 {
