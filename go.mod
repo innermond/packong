@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go v0.39.0 // indirect
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/alecthomas/gometalinter v3.0.0+incompatible // indirect
+	github.com/atotto/clipboard v0.1.2
 	github.com/coreos/etcd v3.3.13+incompatible // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/cosiner/argv v0.0.1 // indirect

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/atotto/clipboard"
 	"github.com/innermond/packong"
 )
 
@@ -142,7 +143,9 @@ func main() {
 			panic(err)
 		}
 		dotted := strings.Repeat("-", 30)
-		fmt.Fprintf(tw, "%s\n%s\n", dotted, bb.String())
+		offerTxt := bb.String()
+		fmt.Fprintf(tw, "%s\n%s\n", dotted, offerTxt)
+		clipboard.WriteAll(offerTxt)
 	}
 	tw.Flush()
 	if len(outname) > 0 {
