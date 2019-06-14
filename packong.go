@@ -276,17 +276,6 @@ func (op *Op) boxesFromString(extra float64) (boxes []*pak.Box) {
 		sort.Slice(boxes, func(i, j int) bool {
 			return boxes[i].W*boxes[i].H > boxes[j].W*boxes[j].H
 		})
-		/*switch sorting {
-		case 1:
-			sort.Slice(boxes, func(i, j int) bool {
-				return boxes[i].W*boxes[i].H < boxes[j].W*boxes[j].H
-			})
-		case -1:
-			// sort descending by area
-			sort.Slice(boxes, func(i, j int) bool {
-				return boxes[i].W*boxes[i].H > boxes[j].W*boxes[j].H
-			})
-		}*/
 	}
 	return
 }
