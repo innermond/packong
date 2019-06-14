@@ -123,8 +123,10 @@ func main() {
 		fmt.Fprintf(tw, "%s\t%d\n", "UnfitLen", rep.UnfitLen)
 		fmt.Fprintf(tw, "%s\t%s\n", "UnfitCode", rep.UnfitCode)
 	}
+
+	pieces := strings.Join(dimensions, unit+" ")
 	fmt.Fprintf(tw, "%s\t%s\n", "StragegyName", rep.WiningStrategyName)
-	fmt.Fprintf(tw, "%s\t%s\n", "Unit", unit)
+	fmt.Fprintf(tw, "%s\t%s\n", "Pieces", pieces+unit)
 	fmt.Fprintf(tw, "%s\t%.2f\n", "BoxesArea", rep.BoxesArea)
 	fmt.Fprintf(tw, "%s\t%.2f\n", "UsedArea", rep.UsedArea)
 	fmt.Fprintf(tw, "%s\t%.2f\n", "LostArea", rep.LostArea)
@@ -137,7 +139,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		sell := offer{rep, strings.Join(dimensions, "\n"), unit}
+		sell := offer{rep, pieces, unit}
 		var bb bytes.Buffer
 		if err := tpl.Execute(&bb, sell); err != nil {
 			panic(err)
