@@ -14,6 +14,11 @@ import (
 	"github.com/innermond/pak"
 )
 
+const (
+	CONTINUE_FIT_OP = iota
+	ABORT_FIT_OP
+)
+
 // strategies used for packing boxes on mother box
 var strategies = map[string]*pak.Base{
 	"BestAreaFit":      &pak.Base{&pak.BestAreaFit{}},
@@ -148,7 +153,11 @@ func (op *Op) kk() (float64, float64) {
 	return k, k2
 }
 
-func (op *Op) Fit(deep bool) (*Report, []FitReader, error) {
+func (op *Op) NumStrategy() int {
+	return len(strategies)
+}
+
+func (op *Op) Fit(pp [][]*pak.Box, deep bool) (*Report, []FitReader, error) {
 
 	wins := map[string][]float64{}
 	remnants := map[string][]*pak.Box{}
@@ -156,18 +165,7 @@ func (op *Op) Fit(deep bool) (*Report, []FitReader, error) {
 	mx := sync.Mutex{}
 
 	var wg sync.WaitGroup
-	// if the cut can eat half of its width along cutline
-	// we compensate expanding boxes with an entire cut width
-	boxes, err := op.boxesFromString(op.cutwidth)
-	if err != nil {
-		return nil, []FitReader{}, err
-	}
-	pp := [][]*pak.Box{boxes}
-	if deep {
-		pp = permutations(boxes)
-	}
-	lenall := len(pp) * len(strategies)
-	wg.Add(lenall)
+	wg.Add(len(pp) * len(strategies))
 	for pix, permutated := range pp {
 		for strategyName, strategy := range strategies {
 			sn := strategyName + ".perm." + strconv.Itoa(pix)
@@ -201,7 +199,7 @@ func (op *Op) Fit(deep bool) (*Report, []FitReader, error) {
 	if !ok {
 		return nil, nil, errors.New("no wining strategy")
 	}
-	boxes, ok = remnants[winingStrategyName]
+	boxes, ok := remnants[winingStrategyName]
 	if !ok {
 		return nil, nil, errors.New("remnants error")
 	}
@@ -241,7 +239,7 @@ func (op *Op) Fit(deep bool) (*Report, []FitReader, error) {
 	return rep, outFns, nil
 }
 
-func (op *Op) boxesFromString(extra float64) (boxes []*pak.Box, err error) {
+func (op *Op) BoxesFromString() (boxes []*pak.Box, err error) {
 	for _, dd := range op.dimensions {
 		d := strings.Split(dd, "x")
 		if len(d) == 2 {
@@ -271,7 +269,7 @@ func (op *Op) boxesFromString(extra float64) (boxes []*pak.Box, err error) {
 		}
 
 		for n != 0 {
-			boxes = append(boxes, &pak.Box{W: w + extra, H: h + extra, CanRotate: r})
+			boxes = append(boxes, &pak.Box{W: w + op.cutwidth, H: h + op.cutwidth, CanRotate: r})
 			n--
 		}
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"flag"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/atotto/clipboard"
 	"github.com/innermond/packong"
+	"github.com/innermond/pak"
 )
 
 var (
@@ -109,19 +111,60 @@ type offer struct {
 }
 
 func main() {
-	err := param()
+	var (
+		rep  *packong.Report
+		outs []packong.FitReader
+		err  error
+	)
+
+	err = param()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	rep, outs, err := packong.NewOp(width, height, dimensions, unit).
+	op := packong.NewOp(width, height, dimensions, unit).
 		Outname(outname).
 		Appearance(plain, showDim).
 		Price(mu, ml, pp, pd).
 		Greedy(greedy).
-		VendorSellInt(vendorsellint).
-		Fit(deep)
+		VendorSellInt(vendorsellint)
+	// if the cut can eat half of its width along cutline
+	// we compensate expanding boxes with an entire cut width
+	boxes, err := op.BoxesFromString()
+	if err != nil {
+		log.Fatal(err)
+	}
+	pp := [][]*pak.Box{boxes}
+	if deep {
+		pp = packong.Permutations(boxes)
+	}
+	lenall := len(pp)
+	if lenall > len(boxes) {
+		// take approval from user
+		fmt.Printf("%d combinations. Can take a loger time. Continue?\n", lenall)
+		var (
+			yn string
+			r  *bufio.Reader = bufio.NewReader(os.Stdin)
+		)
+	approve:
+		for {
+			fmt.Println("Enter y to continue or a n to abort")
+			yn, err = r.ReadString('\n')
+			yn = strings.TrimRight(yn, "\n")
+			if err != nil {
+				continue
+			}
 
+			switch yn {
+			case "y":
+				break approve
+			case "n":
+				fmt.Println("user aborted packing operation")
+				os.Exit(0)
+			}
+		}
+	}
+	rep, outs, err = op.Fit(pp, deep)
 	if err != nil {
 		log.Fatal(err)
 	}
