@@ -158,8 +158,10 @@ func (op *Op) Fit(deep bool) (*Report, []FitReader, error) {
 	var wg sync.WaitGroup
 	// if the cut can eat half of its width along cutline
 	// we compensate expanding boxes with an entire cut width
-	boxes := op.boxesFromString(op.cutwidth)
-
+	boxes, err := op.boxesFromString(op.cutwidth)
+	if err != nil {
+		return nil, []FitReader{}, err
+	}
 	pp := [][]*pak.Box{boxes}
 	if deep {
 		pp = permutations(boxes)
@@ -239,7 +241,7 @@ func (op *Op) Fit(deep bool) (*Report, []FitReader, error) {
 	return rep, outFns, nil
 }
 
-func (op *Op) boxesFromString(extra float64) (boxes []*pak.Box) {
+func (op *Op) boxesFromString(extra float64) (boxes []*pak.Box, err error) {
 	for _, dd := range op.dimensions {
 		d := strings.Split(dd, "x")
 		if len(d) == 2 {
@@ -250,22 +252,22 @@ func (op *Op) boxesFromString(extra float64) (boxes []*pak.Box) {
 
 		w, err := strconv.ParseFloat(d[0], 64)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		h, err := strconv.ParseFloat(d[1], 64)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		n, err := strconv.Atoi(d[2])
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		r, err := strconv.ParseBool(d[3])
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		for n != 0 {
