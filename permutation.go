@@ -3,6 +3,7 @@ package packong
 import "github.com/innermond/pak"
 
 // Permutations give all combinations of a slice of boxes
+// caveat: it is holding all in memory
 func Permutations(arr []*pak.Box) [][]*pak.Box {
 	var helper func([]*pak.Box, int)
 	res := [][]*pak.Box{}

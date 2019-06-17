@@ -165,25 +165,46 @@ func (op *Op) Fit(pp [][]*pak.Box, deep bool) (*Report, []FitReader, error) {
 	mx := sync.Mutex{}
 
 	var wg sync.WaitGroup
-	wg.Add(len(pp) * len(strategies))
-	for pix, permutated := range pp {
-		for strategyName, strategy := range strategies {
-			sn := strategyName + ".perm." + strconv.Itoa(pix)
-			s := strategy
-			bb := []*pak.Box{}
-			for _, box := range permutated {
-				bb = append(bb, &pak.Box{W: box.W, H: box.H, CanRotate: box.CanRotate})
+	peek := 10
+	//numAll:= len(pp) * len(strategies)
+	var piece [][]*pak.Box
+	lenpp := len(pp)
+	i := 0
+	j := peek
+	if j > lenpp {
+		j = lenpp
+	}
+pieced:
+	for {
+		piece = pp[i:j]
+		wg.Add((j - i) * len(strategies))
+		for pix, permutated := range piece {
+			for strategyName, strategy := range strategies {
+				sn := strategyName + ".perm." + strconv.Itoa(i+pix)
+				s := strategy
+				// unsorted
+				go func() {
+					bb := []*pak.Box{}
+					for _, box := range permutated {
+						bb = append(bb, &pak.Box{W: box.W, H: box.H, CanRotate: box.CanRotate})
+					}
+					mx.Lock()
+					wins[sn], remnants[sn], outputFn[sn] = op.matchboxes(sn, s, bb)
+					defer mx.Unlock()
+					defer wg.Done()
+				}()
 			}
-			// unsorted
-			go func(bb []*pak.Box) {
-				mx.Lock()
-				wins[sn], remnants[sn], outputFn[sn] = op.matchboxes(sn, s, bb)
-				defer mx.Unlock()
-				defer wg.Done()
-			}(bb)
+		}
+		wg.Wait()
+		if j == lenpp {
+			break pieced
+		}
+		i = j
+		j += peek
+		if j > lenpp {
+			j = lenpp
 		}
 	}
-	wg.Wait()
 
 	smallestLostArea, prevSmallestLostArea := math.MaxFloat32, math.MaxFloat32
 	winingStrategyName := ""

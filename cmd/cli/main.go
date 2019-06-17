@@ -137,11 +137,8 @@ func main() {
 	pp := [][]*pak.Box{boxes}
 	if deep {
 		pp = packong.Permutations(boxes)
-	}
-	lenall := len(pp)
-	if lenall > len(boxes) {
 		// take approval from user
-		fmt.Printf("%d combinations. Can take a loger time. Continue?\n", lenall)
+		fmt.Printf("%d combinations. Can take a loger time. Continue?\n", len(pp))
 		var (
 			yn string
 			r  *bufio.Reader = bufio.NewReader(os.Stdin)
