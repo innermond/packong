@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
@@ -33,7 +34,7 @@ var (
 	showOffer      bool
 )
 
-func param() {
+func param() error {
 	var err error
 
 	flag.StringVar(&outname, "o", "", "name of the maching project")
@@ -63,17 +64,20 @@ func param() {
 	case 1:
 		wh = append(wh, wh[0])
 	case 0:
-		panic("need to specify dimensions for big box")
+		return errors.New("need to specify dimensions for big box")
 	}
 	width, err = strconv.ParseFloat(wh[0], 64)
 	if err != nil {
-		panic("can't get width")
+		return errors.New("can't get width")
 	}
 	height, err = strconv.ParseFloat(wh[1], 64)
 	if err != nil {
-		panic("can't get height")
+		return errors.New("can't get height")
 	}
 	dimensions = flag.Args()
+	if len(dimensions) == 0 {
+		return errors.New("dimensions required")
+	}
 
 	flag.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -91,6 +95,7 @@ func param() {
 			showOffer = true
 		}
 	})
+	return nil
 }
 
 var selltext string = `Oferta pentru suprafetele
@@ -104,7 +109,10 @@ type offer struct {
 }
 
 func main() {
-	param()
+	err := param()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	rep, outs, err := packong.NewOp(width, height, dimensions, unit).
 		Outname(outname).
@@ -115,7 +123,7 @@ func main() {
 		Fit(deep)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
@@ -137,12 +145,12 @@ func main() {
 	if showOffer {
 		tpl, err := template.New("offer").Parse(selltext)
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 		sell := offer{rep, pieces, unit}
 		var bb bytes.Buffer
 		if err := tpl.Execute(&bb, sell); err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 		dotted := strings.Repeat("-", 30)
 		offerTxt := bb.String()
