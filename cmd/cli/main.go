@@ -179,6 +179,8 @@ func main() {
 	fmt.Fprintf(tw, "%s\t%.2f\n", "UsedArea", rep.UsedArea)
 	fmt.Fprintf(tw, "%s\t%.2f\n", "LostArea", rep.LostArea)
 	fmt.Fprintf(tw, "%s\t%.2f\n", "VendoredArea", rep.VendoredArea)
+	fmt.Fprintf(tw, "%s\t%.2f\n", "VendoredLength", rep.VendoredLength)
+	fmt.Fprintf(tw, "%s\t%.2f\n", "VendoredWidth", rep.VendoredWidth)
 	fmt.Fprintf(tw, "%s\t%.2f\n", "ProcentArea", rep.ProcentArea)
 	fmt.Fprintf(tw, "%s\t%.2f\n", "NumSheetUsed", rep.NumSheetUsed)
 	fmt.Fprintf(tw, "%s\t%.2f\n", "Price", rep.Price)
