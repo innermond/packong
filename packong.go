@@ -165,7 +165,7 @@ func (op *Op) Fit(pp [][]*pak.Box, deep bool) (*Report, []FitReader, error) {
 	mx := sync.Mutex{}
 
 	var wg sync.WaitGroup
-	peek := 10
+	peek := 100
 	//numAll:= len(pp) * len(strategies)
 	var piece [][]*pak.Box
 	lenpp := len(pp)
