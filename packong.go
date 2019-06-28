@@ -228,7 +228,7 @@ pieced:
 	if !ok {
 		return nil, nil, errors.New("outFns error")
 	}
-	usedArea, vendoredArea, boxesArea, boxesPerim, numSheetsUsed := best[0], best[1], best[2], best[3], best[4]
+	usedArea, vendoredArea, vendoredLength, boxesArea, boxesPerim, numSheetsUsed := best[0], best[1], best[2], best[3], best[4], best[5]
 	lostArea := usedArea - boxesArea
 	if op.vendorsellint {
 		lostArea = vendoredArea - boxesArea
@@ -237,6 +237,7 @@ pieced:
 	boxesArea = boxesArea / op.k2
 	usedArea = usedArea / op.k2
 	vendoredArea = vendoredArea / op.k2
+	vendoredLength = vendoredLength / op.k
 	lostArea = lostArea / op.k2
 	boxesPerim = boxesPerim / op.k
 	price := boxesArea*op.mu + lostArea*op.ml + boxesPerim*op.pp + op.pd
@@ -248,6 +249,8 @@ pieced:
 		BoxesArea:          boxesArea,
 		UsedArea:           usedArea,
 		VendoredArea:       vendoredArea,
+		VendoredLength:     vendoredLength,
+		VendoredWidth:      op.width / op.k,
 		LostArea:           lostArea,
 		ProcentArea:        procentArea,
 		BoxesPerim:         boxesPerim,
@@ -309,7 +312,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 		lenboxes  int
 		remaining []*pak.Box
 	)
-	inx, usedArea, vendoredArea, boxesArea, boxesPerim := 0, 0.0, 0.0, 0.0, 0.0
+	inx, usedArea, vendoredArea, vendoredLength, boxesArea, boxesPerim := 0, 0.0, 0.0, 0.0, 0.0, 0.0
 	fnOutput := []FitReader{}
 
 	lenboxes = len(boxes)
@@ -378,6 +381,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 		} else {
 			vendoredArea = usedArea
 		}
+		vendoredLength = vendoredArea / op.width
 
 		inx++
 
@@ -401,7 +405,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 			}(inx, bin.Boxes[:])
 		}
 	}
-	return []float64{usedArea, vendoredArea, boxesArea, boxesPerim, float64(inx)}, remaining, fnOutput
+	return []float64{usedArea, vendoredArea, vendoredLength, boxesArea, boxesPerim, float64(inx)}, remaining, fnOutput
 }
 
 type Report struct {
@@ -409,6 +413,8 @@ type Report struct {
 	BoxesArea          float64
 	UsedArea           float64
 	VendoredArea       float64
+	VendoredLength     float64
+	VendoredWidth      float64
 	LostArea           float64
 	ProcentArea        float64
 	BoxesPerim         float64
