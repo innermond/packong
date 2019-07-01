@@ -395,7 +395,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 			func(inx int, boxes []*pak.Box) {
 				fn := fmt.Sprintf("%s.%d.%s.svg", op.outname, inx, strategyName)
 
-				s := svg.Start(op.width, op.height, op.unit, op.plain)
+				s := svg.Start(op.width, vendoredLength+op.topleftmargin, op.unit, op.plain)
 				si, err := svg.Out(boxes, op.topleftmargin, op.plain, op.showDim)
 				if err != nil {
 					return

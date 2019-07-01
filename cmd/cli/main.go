@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -25,6 +26,7 @@ var (
 	outname, unit, bigbox string
 	wh                    []string
 	width, height         float64
+	fo                    string
 
 	tight bool
 
@@ -51,6 +53,7 @@ func param() error {
 	flag.BoolVar(&vendorsellint, "vendorsellint", true, "vendors sells an integer number of sheet length")
 	flag.BoolVar(&deep, "deep", false, "calculate all boxes permutations")
 	flag.BoolVar(&showOffer, "offer", false, "show a text representing offer")
+	flag.StringVar(&fo, "fo", "", "template offer filename")
 
 	flag.Float64Var(&mu, "mu", 15.0, "used material price per 1 square meter")
 	flag.Float64Var(&ml, "ml", 5.0, "lost material price per 1 square meter")
@@ -75,6 +78,13 @@ func param() error {
 	height, err = strconv.ParseFloat(wh[1], 64)
 	if err != nil {
 		return errors.New("can't get height")
+	}
+	if fo != "" {
+		bb, err := ioutil.ReadFile(fo)
+		if err != nil {
+			return err
+		}
+		selltext = string(bb)
 	}
 	dimensions = flag.Args()
 	if len(dimensions) == 0 {
