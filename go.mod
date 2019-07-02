@@ -9,5 +9,6 @@ require (
 	github.com/google/shlex v0.0.0-20181106134648-c34317bd91bf // indirect
 	github.com/innermond/pak v0.0.0-20190410062905-c33eb38e4a90
 	github.com/pkg/errors v0.8.1
+	github.com/signintech/gopdf v0.9.1 // indirect
 	gopkg.in/alecthomas/kingpin.v3-unstable v3.0.0-20180810215634-df19058c872c // indirect
 )
