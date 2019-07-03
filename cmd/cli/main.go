@@ -148,7 +148,7 @@ func main() {
 	if deep {
 		pp = packong.Permutations(boxes)
 		// take approval from user
-		fmt.Printf("%d combinations. Can take a loger time. Continue?\n", len(pp))
+		fmt.Printf("%d combinations. Can take a much much longer time. Continue?\n", len(pp))
 		var (
 			yn string
 			r  *bufio.Reader = bufio.NewReader(os.Stdin)
@@ -182,7 +182,7 @@ func main() {
 		fmt.Fprintf(tw, "%s\t%s\n", "UnfitCode", rep.UnfitCode)
 	}
 
-	pieces := strings.Join(dimensions, unit+" ")
+	pieces := strings.Join(dimensions, " ")
 	fmt.Fprintf(tw, "%s\t%s\n", "StragegyName", rep.WiningStrategyName)
 	fmt.Fprintf(tw, "%s\t%s\n", "Pieces", pieces+unit)
 	fmt.Fprintf(tw, "%s\t%.2f\n", "BoxesArea", rep.BoxesArea)
@@ -207,7 +207,10 @@ func main() {
 		dotted := strings.Repeat("-", 30)
 		offerTxt := bb.String()
 		fmt.Fprintf(tw, "%s\n%s\n", dotted, offerTxt)
-		clipboard.WriteAll(offerTxt)
+		err = clipboard.WriteAll(offerTxt)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 	tw.Flush()
 	if len(outname) > 0 {
