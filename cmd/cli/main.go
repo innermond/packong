@@ -34,8 +34,8 @@ var (
 
 	cutwidth, topleftmargin float64
 
-	mu, ml, pp, pd float64
-	showOffer      bool
+	mu, ml, pp, pd, ph float64
+	showOffer, spor    bool
 )
 
 func param() error {
@@ -53,12 +53,14 @@ func param() error {
 	flag.BoolVar(&vendorsellint, "vendorsellint", true, "vendors sells an integer number of sheet length")
 	flag.BoolVar(&deep, "deep", false, "calculate all boxes permutations")
 	flag.BoolVar(&showOffer, "offer", false, "show a text representing offer")
+	flag.BoolVar(&spor, "spor", false, "spor")
 	flag.StringVar(&fo, "fo", "", "template offer filename")
 
 	flag.Float64Var(&mu, "mu", 15.0, "used material price per 1 square meter")
 	flag.Float64Var(&ml, "ml", 5.0, "lost material price per 1 square meter")
 	flag.Float64Var(&pp, "pp", 0.25, "perimeter price per 1 linear meter; used for evaluating cuts price")
 	flag.Float64Var(&pd, "pd", 10, "travel price to location")
+	flag.Float64Var(&ph, "ph", 3.5, "man power price")
 	flag.Float64Var(&cutwidth, "cutwidth", 0.0, "the with of material that is lost due to a cut")
 	flag.Float64Var(&topleftmargin, "margin", 0.0, "offset from top left margin")
 
@@ -105,6 +107,8 @@ func param() error {
 			deep = true
 		case "offer":
 			showOffer = true
+		case "spor":
+			spor = true
 		}
 	})
 	return nil
@@ -194,6 +198,12 @@ func main() {
 	fmt.Fprintf(tw, "%s\t%.2f\n", "ProcentArea", rep.ProcentArea)
 	fmt.Fprintf(tw, "%s\t%.2f\n", "NumSheetUsed", rep.NumSheetUsed)
 	fmt.Fprintf(tw, "%s\t%.2f\n", "Price", rep.Price)
+	fmt.Fprintf(tw, "%s\t%.2f\n", "Materials cost", rep.VendoredArea*ml)
+	fmt.Fprintf(tw, "%s\t%.2f\n", "Man cost", rep.BoxesArea*ph)
+	fmt.Fprintf(tw, "%s\t%.2f\n", "Travel cost", pd)
+	if spor {
+		fmt.Fprintf(tw, "%s\t%.2f\n", "Spor", rep.Price-(rep.VendoredArea*ml+rep.BoxesArea*ph+pd))
+	}
 	if showOffer {
 		tpl, err := template.New("offer").Parse(selltext)
 		if err != nil {
