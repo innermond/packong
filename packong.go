@@ -90,6 +90,15 @@ func (op *Op) Topleft(tl float64) *Op {
 	return op
 }
 
+func (op *Op) WidthHeight(w, h float64) *Op {
+	op.width = w
+	op.height = h
+	return op
+}
+func (op *Op) Dimensions(dd []string) *Op {
+	op.dimensions = dd
+	return op
+}
 func (op *Op) Tight(t bool) *Op {
 	op.tight = t
 	return op
@@ -160,6 +169,7 @@ func (op *Op) NumStrategy() int {
 func (op *Op) Fit(pp [][]*pak.Box, deep bool) (*Report, []FitReader, error) {
 
 	wins := map[string][]float64{}
+	done := map[string][]*pak.Box{}
 	remnants := map[string][]*pak.Box{}
 	outputFn := map[string][]FitReader{}
 	mx := sync.Mutex{}
@@ -189,7 +199,7 @@ pieced:
 						bb = append(bb, &pak.Box{W: box.W, H: box.H, CanRotate: box.CanRotate})
 					}
 					mx.Lock()
-					wins[sn], remnants[sn], outputFn[sn] = op.matchboxes(sn, s, bb)
+					wins[sn], done[sn], remnants[sn], outputFn[sn] = op.matchboxes(sn, s, bb)
 					defer mx.Unlock()
 					defer wg.Done()
 				}()
@@ -224,6 +234,10 @@ pieced:
 	if !ok {
 		return nil, nil, errors.New("remnants error")
 	}
+	fitboxes, ok := done[winingStrategyName]
+	if !ok {
+		return nil, nil, errors.New("fitboxes error")
+	}
 	outFns, ok := outputFn[winingStrategyName]
 	if !ok {
 		return nil, nil, errors.New("outFns error")
@@ -257,6 +271,7 @@ pieced:
 		Price:              price,
 		UnfitLen:           len(boxes),
 		UnfitCode:          pak.BoxCode(boxes),
+		FitCode:            pak.BoxCode(fitboxes),
 		NumSheetUsed:       numSheetsUsed,
 	}
 
@@ -306,11 +321,12 @@ func (op *Op) BoxesFromString() (boxes []*pak.Box, err error) {
 
 type FitReader map[string]io.Reader
 
-func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.Box) ([]float64, []*pak.Box, []FitReader) {
+func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.Box) ([]float64, []*pak.Box, []*pak.Box, []FitReader) {
 
 	var (
 		lenboxes  int
 		remaining []*pak.Box
+		done      []*pak.Box
 	)
 	inx, usedArea, vendoredArea, vendoredLength, boxesArea, boxesPerim := 0, 0.0, 0.0, 0.0, 0.0, 0.0
 	fnOutput := []FitReader{}
@@ -331,6 +347,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 				// cannot insert skyp to next box
 				continue
 			}
+			done = append(done, box)
 
 			if op.topleftmargin == 0.0 {
 				// all boxes touching top or left edges will need a half expand
@@ -405,7 +422,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 			}(inx, bin.Boxes[:])
 		}
 	}
-	return []float64{usedArea, vendoredArea, vendoredLength, boxesArea, boxesPerim, float64(inx)}, remaining, fnOutput
+	return []float64{usedArea, vendoredArea, vendoredLength, boxesArea, boxesPerim, float64(inx)}, done, remaining, fnOutput
 }
 
 type Report struct {
@@ -421,5 +438,6 @@ type Report struct {
 	Price              float64
 	UnfitLen           int
 	UnfitCode          string
+	FitCode            string
 	NumSheetUsed       float64
 }
