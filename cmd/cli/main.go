@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -23,10 +22,10 @@ import (
 var (
 	dimensions []string
 
-	outname, unit, bigbox string
-	wh                    []string
-	width, height         float64
-	fo                    string
+	outname, unit string
+	bigbox        bigboxes
+	width, height float64
+	fo            string
 
 	tight bool
 
@@ -34,17 +33,17 @@ var (
 
 	cutwidth, topleftmargin float64
 
-	mu, ml, pp, pd, ph float64
-	showOffer, spor    bool
+	mu, pp, pd, ph  float64
+	ml              price
+	showOffer, spor bool
 )
 
 func param() error {
-	var err error
 
 	flag.StringVar(&outname, "o", "", "name of the maching project")
 	flag.StringVar(&unit, "u", "mm", "unit of measurements")
 
-	flag.StringVar(&bigbox, "bb", "0x0", "dimensions as \"wxh\" in units for bigest box / mother surface")
+	flag.Var(&bigbox, "bb", "dimensions as \"wxh\" in units for bigest box / mother surface")
 
 	flag.BoolVar(&tight, "tight", false, "when true only aria used tighten by height is taken into account")
 	flag.BoolVar(&plain, "inkscape", true, "when false will save svg as inkscape svg")
@@ -57,7 +56,7 @@ func param() error {
 	flag.StringVar(&fo, "fo", "", "template offer filename")
 
 	flag.Float64Var(&mu, "mu", 15.0, "used material price per 1 square meter")
-	flag.Float64Var(&ml, "ml", 5.0, "lost material price per 1 square meter")
+	flag.Var(&ml, "ml", "lost material price per 1 square meter")
 	flag.Float64Var(&pp, "pp", 0.25, "perimeter price per 1 linear meter; used for evaluating cuts price")
 	flag.Float64Var(&pd, "pd", 10, "travel price to location")
 	flag.Float64Var(&ph, "ph", 3.5, "man power price")
@@ -66,21 +65,10 @@ func param() error {
 
 	flag.Parse()
 
-	wh = strings.Split(bigbox, "x")
-	switch len(wh) {
-	case 1:
-		wh = append(wh, wh[0])
-	case 0:
-		return errors.New("need to specify dimensions for big box")
+	if len(ml) == 0 {
+		ml = price{5.0}
 	}
-	width, err = strconv.ParseFloat(wh[0], 64)
-	if err != nil {
-		return errors.New("can't get width")
-	}
-	height, err = strconv.ParseFloat(wh[1], 64)
-	if err != nil {
-		return errors.New("can't get height")
-	}
+
 	if fo != "" {
 		bb, err := ioutil.ReadFile(fo)
 		if err != nil {
@@ -88,6 +76,7 @@ func param() error {
 		}
 		selltext = string(bb)
 	}
+
 	dimensions = flag.Args()
 	if len(dimensions) == 0 {
 		return errors.New("dimensions required")
@@ -136,10 +125,13 @@ func main() {
 		log.Fatal(err)
 	}
 
+	bx := bigbox[0]
+	width, height = bx[0], bx[1]
+
 	op := packong.NewOp(width, height, dimensions, unit).
 		Outname(outname).
 		Appearance(plain, showDim).
-		Price(mu, ml, pp, pd).
+		Price(mu, ml[0], pp, pd).
 		Greedy(greedy).
 		VendorSellInt(vendorsellint)
 	// if the cut can eat half of its width along cutline
@@ -179,14 +171,44 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	writeReport(rep, ml[0], ph, pd, spor, showOffer, selltext, unit)
 
+	for rep.UnfitLen > 0 && len(bigbox) > 1 {
+		bigbox = bigbox[1:]
+		width, height = bigbox[0][0], bigbox[0][1]
+		op.Dimensions(strings.Split(strings.TrimSpace(rep.UnfitCode), ","))
+		op.WidthHeight(width, height)
+		boxes, err := op.BoxesFromString()
+		if err != nil {
+			log.Fatal(err)
+		}
+		pp := [][]*pak.Box{boxes}
+		rep, outs, err = op.Fit(pp, deep)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if len(ml) > 1 {
+			ml = ml[1:]
+		}
+		writeReport(rep, ml[0], ph, pd, spor, showOffer, selltext, unit)
+	}
+
+	if len(outname) > 0 {
+		errs := writeFiles(outs)
+		if len(errs) > 0 {
+			log.Println(errs)
+		}
+	}
+
+}
+
+func writeReport(rep *packong.Report, ml, ph, pd float64, spor, showOffer bool, selltext, unit string) {
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	if rep.UnfitLen > 0 {
 		fmt.Fprintf(tw, "%s\t%d\n", "UnfitLen", rep.UnfitLen)
 		fmt.Fprintf(tw, "%s\t%s\n", "UnfitCode", rep.UnfitCode)
 	}
-
-	pieces := strings.Join(dimensions, " ")
+	pieces := strings.TrimSpace(rep.FitCode)
 	fmt.Fprintf(tw, "%s\t%s\n", "StragegyName", rep.WiningStrategyName)
 	fmt.Fprintf(tw, "%s\t%s\n", "Pieces", pieces+unit)
 	fmt.Fprintf(tw, "%s\t%.2f\n", "BoxesArea", rep.BoxesArea)
@@ -223,12 +245,6 @@ func main() {
 		}
 	}
 	tw.Flush()
-	if len(outname) > 0 {
-		errs := writeFiles(outs)
-		if len(errs) > 0 {
-			log.Println(errs)
-		}
-	}
 }
 
 func writeFiles(outs []packong.FitReader) (errs []error) {
