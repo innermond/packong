@@ -9,14 +9,19 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/innermond/packong"
 	"github.com/pkg/errors"
 )
 
 func main() {
-	http.HandleFunc("/", fitBoxes)
-	err := http.ListenAndServe(":2222", nil)
+	s := &http.Server{
+		ReadHeaderTimeout: 20 * time.Second,
+		Addr:              ":2222",
+		Handler:           fitBoxes,
+	}
+	err := s.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)
 	}
