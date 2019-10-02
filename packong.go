@@ -64,6 +64,12 @@ type Op struct {
 
 	// scale factors: k is for lenghts, k2 is for areas
 	k, k2 float64
+
+	// output for web
+	outweb bool
+
+	// outline, no fill
+	outline bool
 }
 
 func NewOp(w, h float64, dd []string, u string) *Op {
@@ -113,6 +119,11 @@ func (op *Op) Appearance(yesno ...bool) *Op {
 	case 1:
 		op.plain = yesno[0]
 
+	case 3:
+		op.plain = yesno[0]
+		op.showDim = yesno[1]
+		op.outline = yesno[2]
+
 	default:
 		op.plain = yesno[0]
 		op.showDim = yesno[1]
@@ -128,6 +139,11 @@ func (op *Op) Cutwidth(cw float64) *Op {
 
 func (op *Op) Outname(name string) *Op {
 	op.outname = name
+	return op
+}
+
+func (op *Op) Outweb(val bool) *Op {
+	op.outweb = val
 	return op
 }
 
@@ -247,7 +263,10 @@ pieced:
 	if op.vendorsellint {
 		lostArea = vendoredArea - boxesArea
 	}
-	procentArea := boxesArea * 100 / usedArea
+	procentArea := 0.0
+	if usedArea > 0 {
+		procentArea = boxesArea * 100 / usedArea
+	}
 	boxesArea = boxesArea / op.k2
 	usedArea = usedArea / op.k2
 	vendoredArea = vendoredArea / op.k2
@@ -290,15 +309,27 @@ func (op *Op) BoxesFromString() (boxes []*pak.Box, err error) {
 		w, err := strconv.ParseFloat(d[0], 64)
 		if err != nil {
 			return nil, err
+		} else if w <= 0 {
+			err = fmt.Errorf("greater than zero condition; received %q", w)
+			return nil, err
 		}
 
 		h, err := strconv.ParseFloat(d[1], 64)
 		if err != nil {
 			return nil, err
+		} else if h <= 0 {
+			err = fmt.Errorf("greater than zero condition; received %q", h)
+			return nil, err
 		}
 
 		n, err := strconv.Atoi(d[2])
 		if err != nil {
+			return nil, err
+		} else if n < 1 {
+			err = fmt.Errorf("greater than zero condition; received %q", n)
+			return nil, err
+		} else if n > 50 {
+			err = fmt.Errorf("lesser than peak condition; received %q", w)
 			return nil, err
 		}
 
@@ -412,8 +443,13 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 			func(inx int, boxes []*pak.Box) {
 				fn := fmt.Sprintf("%s.%d.%s.svg", op.outname, inx, strategyName)
 
-				s := svg.Start(op.width, vendoredLength+op.topleftmargin, op.unit, op.plain)
-				si, err := svg.Out(boxes, op.topleftmargin, op.plain, op.showDim)
+				var s string
+				if op.outweb {
+					s = svg.StartWeb(op.width, vendoredLength+op.topleftmargin, op.plain)
+				} else {
+					s = svg.Start(op.width, vendoredLength+op.topleftmargin, op.unit, op.plain)
+				}
+				si, err := svg.Out(boxes, op.topleftmargin, op.width, op.plain, op.showDim, op.outline)
 				if err != nil {
 					return
 				}
@@ -425,6 +461,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 	return []float64{usedArea, vendoredArea, vendoredLength, boxesArea, boxesPerim, float64(inx)}, done, remaining, fnOutput
 }
 
+//go:generate json_snake_case -type=Report
 type Report struct {
 	WiningStrategyName string
 	BoxesArea          float64

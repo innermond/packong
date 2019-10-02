@@ -17,7 +17,7 @@ const (
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"`
 	vbfmt = `viewBox="%f %f %f %f"`
 
-	emptyclose = "/>\n"
+	emptyclose = "/>"
 )
 
 func Start(w float64, h float64, unit string, plain bool) string {
@@ -26,12 +26,24 @@ func Start(w float64, h float64, unit string, plain bool) string {
 	if plain == false {
 		s += svgnsinkscape
 	}
-	s += ">\n"
+	s += ">"
+	return s
+}
+
+func StartWeb(w float64, h float64, plain bool) string {
+	s := svgtop +
+		" style=\"positon:a0bsolute;width:100%;height:100%;\" preserveAspectRatio=\"xMidYMid meet\" " +
+		fmt.Sprintf(vbfmt, 0.0, 0.0, w, h) + svgns
+	if plain == false {
+		s += svgnsinkscape
+	}
+	s += ">"
+	s += Rect(0.0, 0.0, w, h, "stroke:gray;stroke-width:2;fill:none")
 	return s
 }
 
 func End(s string) string {
-	return s + "\n</svg>\n"
+	return s + "</svg>"
 }
 
 func GroupStart(ss ...string) string {
@@ -44,7 +56,7 @@ func GroupStart(ss ...string) string {
 }
 
 func GroupEnd(g string) string {
-	return g + "\n</g>\n"
+	return g + "</g>"
 }
 
 func Rect(x float64, y float64, w float64, h float64, s string) string {
@@ -52,9 +64,9 @@ func Rect(x float64, y float64, w float64, h float64, s string) string {
 <rect x="%f" y="%f" width="%f" height="%f" style="%s" />`, x, y, w, h, s)
 }
 
-func Text(x float64, y float64, txt string, s string) string {
+func Text(x float64, y float64, transform, txt string, s string) string {
 	return fmt.Sprintf(`
-<text x="%f" y="%f" style="%s" >
+<text x="%f" y="%f" %s style="%s" >
 %s
-</text>`, x, y, s, txt)
+</text>`, x, y, transform, s, txt)
 }

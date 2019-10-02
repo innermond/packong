@@ -9,11 +9,22 @@ import (
 )
 
 func aproximateHeightText(numchar int, w float64) float64 {
-	wchar := w / float64(numchar+2)
+	wchar := w / float64(numchar)
 	return math.Floor(1.5*wchar*100.0) / 100
 }
 
-func Out(blocks []*pak.Box, topleftmargin float64, plain bool, showDim bool) (string, error) {
+var (
+	strokeStyle = "stroke: gray;stroke-width:2;fill:none"
+)
+
+func style(fill string, outline bool) string {
+	if outline {
+		return strokeStyle
+	}
+	return fill
+}
+
+func Out(blocks []*pak.Box, topleftmargin float64, widthSvg float64, plain bool, showDim bool, outline bool) (string, error) {
 	if len(blocks) == 0 {
 		return "", errors.New("no blocks")
 	}
@@ -22,13 +33,14 @@ func Out(blocks []*pak.Box, topleftmargin float64, plain bool, showDim bool) (st
 	if !plain {
 		gb = GroupStart("id=\"blocks\"", "inkscape:label=\"blocks\"", "inkscape:groupmode=\"layer\"")
 	}
+
 	// first block
 	blk := blocks[0]
 	gb += Rect(blk.X,
 		blk.Y,
 		blk.W,
 		blk.H,
-		"fill:magenta;stroke:none",
+		style("fill:magenta;stroke:none", outline),
 	)
 
 	for _, blk := range blocks[1:] {
@@ -39,7 +51,7 @@ func Out(blocks []*pak.Box, topleftmargin float64, plain bool, showDim bool) (st
 					blk.Y,
 					blk.W,
 					blk.H,
-					"fill:red;stroke:none",
+					style("fill:red;stroke:none", outline),
 				)
 				continue
 			}
@@ -49,7 +61,7 @@ func Out(blocks []*pak.Box, topleftmargin float64, plain bool, showDim bool) (st
 					blk.Y,
 					blk.W,
 					blk.H,
-					"fill:green;stroke:none",
+					style("fill:green;stroke:none", outline),
 				)
 				continue
 			}
@@ -58,7 +70,7 @@ func Out(blocks []*pak.Box, topleftmargin float64, plain bool, showDim bool) (st
 				blk.Y,
 				blk.W,
 				blk.H,
-				"fill:#eee;stroke:none",
+				style("fill:#eee;stroke:none", outline),
 			)
 		} else {
 			return "", errors.New("unexpected unfit block")
@@ -78,9 +90,24 @@ func Out(blocks []*pak.Box, topleftmargin float64, plain bool, showDim bool) (st
 				if blk.Rotated {
 					x += "xR"
 				}
-				y := aproximateHeightText(len(x), blk.W)
-				gt += Text(blk.X+blk.W/2, blk.Y+blk.H/2+y/3, // y/3 is totally empirical
-					x, "text-anchor:middle;font-size:"+fmt.Sprintf("%.2f", y)+";fill:#000")
+				xt := blk.X + blk.W/2
+				yt := blk.Y + blk.H/2
+				rotation := ""
+				lendim := blk.W
+				lenx := float64(len(x))
+				if blk.H > blk.W {
+					rotation = fmt.Sprintf(" transform=\"rotate(90, %.2f,%.2f)\" ", xt, yt)
+					lendim = blk.H
+				}
+				// assume height of a letter si 2 than its width
+				// assume 16px represents 100%
+				y := (2.0 * math.Floor(lendim/lenx) / 16)
+				if y > 2.5 {
+					y = 2.5 // assume height of 250% is universally readable
+				}
+				y *= 100
+				gt += Text(xt, yt, rotation,
+					x, "text-anchor:middle;font-size:"+fmt.Sprintf("%.2f%%", y)+";fill:#000")
 			} else {
 				return "", errors.New("unexpected unfit block")
 			}
