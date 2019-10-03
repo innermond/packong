@@ -18,3 +18,6 @@ tags
 
 # Svg files
 *.svg
+
+# dev folder
+dev

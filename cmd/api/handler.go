@@ -16,12 +16,24 @@ import (
 	"github.com/pkg/errors"
 )
 
-func fitBoxes(w http.ResponseWriter, r *http.Request) {
+func fitboxes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 	w.Header().Set("X-Content-Type-Options", "sniff")
 	w.Header().Set("Content-Type", "application/json")
+
+	switch r.Method {
+	case http.MethodPost, http.MethodOptions:
+	default:
+		werr(w, errors.New("fitboxes: unexpected method used"), 405, "method not allowed")
+		return
+	}
+
+	if r.URL.Path != "/" {
+		werr(w, errors.New("fitboxes: resource not found"), 404, "not found")
+		return
+	}
 
 	// parameters
 	var (
@@ -44,7 +56,19 @@ func fitBoxes(w http.ResponseWriter, r *http.Request) {
 	{
 		dec := json.NewDecoder(r.Body)
 		err = dec.Decode(&resp)
-		if werr(w, err, 500, "can't decode json") {
+		var (
+			msg  string
+			code int
+		)
+		switch err.(type) {
+		case *json.SyntaxError:
+			msg = "json syntax malformation"
+			code = 400 // bad request
+		default:
+			msg = "invalid data"
+			code = 422 // unprocessable entity
+		}
+		if werr(w, err, code, msg) {
 			return
 		}
 		defer r.Body.Close()
@@ -82,7 +106,7 @@ func fitBoxes(w http.ResponseWriter, r *http.Request) {
 
 	dimensions = resp.Dimensions
 	if len(dimensions) == 0 {
-		werr(w, errors.New("dimensions required"), 400, "dimensions required")
+		werr(w, errors.New("fitboxes: dimensions required"), 422, "dimensions required")
 		return
 	}
 
@@ -94,9 +118,10 @@ func fitBoxes(w http.ResponseWriter, r *http.Request) {
 		Cutwidth(cutwidth).
 		Appearance(plain, showDim, true).
 		Price(mu, ml, pp, pd)
+
 	boxes, err := op.BoxesFromString()
 	if err != nil {
-		werr(w, err, 500, "couldn't figure out dimensions; invalid dimensions")
+		werr(w, err, 422, "couldn't figure out dimensions; invalid dimensions")
 		return
 	}
 
