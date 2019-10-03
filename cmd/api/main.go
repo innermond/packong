@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"time"
 )
 
@@ -49,8 +52,37 @@ func main() {
 			fmt.Sprintf("address %s\n", addr) +
 			limiterInfo,
 	)
+
+	// ctrl+c
+	done := make(chan struct{}, 1)
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt)
+
+	go func() {
+		// wait for closing signal
+		<-quit
+
+		log.Print("server shutting down...")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		s.SetKeepAlivesEnabled(false)
+		err := s.Shutdown(ctx)
+		if err != nil {
+			log.Fatalf("server cold brutal %v\n", err)
+		}
+
+		close(done)
+	}()
+
+	// blocks here doing serving
 	err := s.ListenAndServe()
-	if err != nil {
+	if err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
+
+	<-done
+	log.Println("server cold")
 }
