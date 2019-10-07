@@ -34,8 +34,14 @@ var (
 
 	cutwidth, topleftmargin float64
 
-	mu, ml, pp, pd, ph, rx float64
-	showOffer, spor        bool
+	mu, ml, pp, pd, ph float64
+
+	rx float64
+	rn string
+
+	showOffer, spor bool
+
+	selltext string
 )
 
 func param() error {
@@ -62,10 +68,16 @@ func param() error {
 	flag.Float64Var(&pd, "pd", 10, "travel price to location")
 	flag.Float64Var(&ph, "ph", 3.5, "man power price")
 	flag.Float64Var(&rx, "rx", 1.0, "rate exchange")
+	flag.StringVar(&rn, "rn", "eur", "currency name - it will be used in reports")
 	flag.Float64Var(&cutwidth, "cutwidth", 0.0, "the with of material that is lost due to a cut")
 	flag.Float64Var(&topleftmargin, "margin", 0.0, "offset from top left margin")
 
 	flag.Parse()
+
+	selltext = `Oferta pentru suprafetele
+{{.Dimensions}} in {{.Unit}}
+este de {{printf "%.2f" (mul .Price ` + fmt.Sprintf("%.2f", rx) + `)}} ` + rn + ` + TVA.
+Include productie, montaj, deplasare.`
 
 	wh = strings.Split(bigbox, "x")
 	switch len(wh) {
@@ -114,11 +126,6 @@ func param() error {
 	})
 	return nil
 }
-
-var selltext string = `Oferta pentru suprafetele
-{{.Dimensions}} in {{.Unit}}
-este de {{printf "%.2f" .Price}} euro + TVA.
-Include productie, montaj, deplasare.`
 
 type offer struct {
 	*packong.Report
@@ -206,7 +213,10 @@ func main() {
 		fmt.Fprintf(tw, "%s\t%.2f\n", "Spor", rx*(rep.Price-(rep.VendoredArea*ml+rep.BoxesArea*ph+pd)))
 	}
 	if showOffer {
-		tpl, err := template.New("offer").Parse(selltext)
+		mul := func(a float64, b float64) float64 {
+			return a * b
+		}
+		tpl, err := template.New("offer").Funcs(template.FuncMap{"mul": mul}).Parse(selltext)
 		if err != nil {
 			log.Fatal(err)
 		}
