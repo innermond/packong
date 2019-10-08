@@ -10,6 +10,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/innermond/packong/cmd/api/requestid"
 )
 
 func main() {
@@ -31,11 +33,15 @@ func main() {
 		fn          http.HandlerFunc
 		limiterInfo string
 	)
+
+	var reqid func(http.HandlerFunc) http.HandlerFunc = requestid.Handler
+	fn = reqid(logRequest(fitboxes))
+
 	if timePeak > 0 {
-		fn = limiterByTime(http.HandlerFunc(fitboxes), timePeak)
+		fn = limiterByTime(http.HandlerFunc(fn), timePeak)
 		limiterInfo = fmt.Sprintf("concurency peak one request in time %d\n", timePeak)
 	} else {
-		fn = limiter(http.HandlerFunc(fitboxes), concurencyPeak)
+		fn = limiter(http.HandlerFunc(fn), concurencyPeak)
 		limiterInfo = fmt.Sprintf("concurency peak max requests %d\n", concurencyPeak)
 	}
 
@@ -58,7 +64,7 @@ func main() {
 	done := make(chan struct{}, 1)
 
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGTERM, syscall.SIGTRAP)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM, syscall.SIGTRAP)
 
 	go func() {
 		// wait for closing signal
@@ -86,4 +92,11 @@ func main() {
 
 	<-done
 	log.Println("server cold")
+}
+
+func env(key, alternative string) string {
+	if value, found := os.LookupEnv(key); found {
+		return value
+	}
+	return alternative
 }

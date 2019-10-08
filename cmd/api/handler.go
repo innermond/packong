@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -23,22 +24,23 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "sniff")
 	w.Header().Set("Content-Type", "application/json")
 
+	rid := getid(r)
+	var err = errid{reqid: rid}
+
 	switch r.Method {
 	case http.MethodPost, http.MethodOptions:
 	default:
-		werr(w, errors.New("fitboxes: unexpected method used"), 405, "method not allowed")
+		werr(w, err.text("fitboxes: unexpected method used"), 405, "method not allowed")
 		return
 	}
 
 	if r.URL.Path != "/" {
-		werr(w, errors.New("fitboxes: resource not found"), 404, "not found")
+		werr(w, err.text("fitboxes: resource not found"), 404, "not found")
 		return
 	}
 
 	// parameters
 	var (
-		err error
-
 		dimensions []string
 
 		unit          string
@@ -55,12 +57,12 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 	var resp ResponseData
 	{
 		dec := json.NewDecoder(r.Body)
-		err = dec.Decode(&resp)
+		fail := dec.Decode(&resp)
 		var (
 			msg  string
 			code int
 		)
-		switch err.(type) {
+		switch fail.(type) {
 		case *json.SyntaxError:
 			msg = "json syntax malformation"
 			code = 400 // bad request
@@ -68,7 +70,7 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 			msg = "invalid data"
 			code = 422 // unprocessable entity
 		}
-		if werr(w, err, code, msg) {
+		if werr(w, err.wrap(fail, "fail decoding json input"), code, msg) {
 			return
 		}
 		defer r.Body.Close()
@@ -106,7 +108,7 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 
 	dimensions = resp.Dimensions
 	if len(dimensions) == 0 {
-		werr(w, errors.New("fitboxes: dimensions required"), 422, "dimensions required")
+		werr(w, err.text("fitboxes: dimensions required"), 422, "dimensions required")
 		return
 	}
 
@@ -119,15 +121,15 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 		Appearance(plain, showDim, true).
 		Price(mu, ml, pp, pd)
 
-	boxes, err := op.BoxesFromString()
-	if err != nil {
-		werr(w, err, 422, "couldn't figure out dimensions; invalid dimensions")
+	boxes, fail := op.BoxesFromString()
+	if fail != nil {
+		werr(w, err.from(fail), 422, "couldn't figure out dimensions; invalid dimensions")
 		return
 	}
 
-	rep, outs, err := op.Fit([][]*pak.Box{boxes}, false)
-	if err != nil {
-		werr(w, err, 500, "packing error")
+	rep, outs, fail := op.Fit([][]*pak.Box{boxes}, false)
+	if fail != nil {
+		werr(w, err.from(fail), 500, "packing error")
 		return
 	}
 
@@ -138,7 +140,7 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 	if len(outname) > 0 {
 		svgs, errs = writeSvg(outs)
 		if len(errs) > 0 {
-			werr(w, errs[0], 500, "error preparing svg vizual")
+			werr(w, err.from(errs[0]), 500, "error preparing svg vizual")
 			return
 		}
 	}
@@ -150,9 +152,9 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 		repJson,
 		svgs,
 	}
-	b, err := json.Marshal(out)
-	if err != nil {
-		werr(w, err, 500, "json error")
+	b, fail := json.Marshal(out)
+	if fail != nil {
+		werr(w, err.from(fail), 500, "json error")
 		return
 	}
 
@@ -184,12 +186,25 @@ func writeSvg(outs []packong.FitReader) (svgs map[string]string, errs []error) {
 }
 
 func werr(w http.ResponseWriter, err error, code int, msg string) bool {
+	// no error leave
 	if err == nil {
 		return false
 	}
 
-	err = errors.Cause(err)
-	log.Printf("%v", err)
+	_, debug := os.LookupEnv("PACKONG_DEBUG")
+	// for debugging
+	if x, ok := err.(errid); ok && debug {
+		log.Printf("%v %+v\n", x.reqid, x.err)
+	}
+
+	if !debug {
+		// for logging
+		err = errors.Cause(err)
+		log.Printf("werr: %v", err)
+	}
+
+	// for client
 	http.Error(w, msg, code)
+
 	return true
 }
