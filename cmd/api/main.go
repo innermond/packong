@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -16,14 +17,28 @@ import (
 
 func main() {
 
-	var port int
-	flag.IntVar(&port, "p", 2222, "set port number '-p <port number>'")
+	var concurencyPeakEnv, timePeakEnv int
+	{
+		var err error
+		concurencyPeakEnv, err = strconv.Atoi(env("PACKONG_CONCURENCY", "10"))
+		if err != nil {
+			concurencyPeakEnv = 10
+		}
+
+		timePeakEnv, err = strconv.Atoi(env("PACKONG_TIME", "0"))
+		if err != nil {
+			timePeakEnv = 0
+		}
+	}
+
+	var port string
+	flag.StringVar(&port, "p", env("PACKONG_PORT", "2222"), "set port number '-p <port number>'")
 
 	var concurencyPeak int
-	flag.IntVar(&concurencyPeak, "c", 10, "set connections concurency maximum limit '-c 20'")
+	flag.IntVar(&concurencyPeak, "c", concurencyPeakEnv, "set connections concurency maximum limit '-c 20'")
 
 	var timePeak int
-	flag.IntVar(&timePeak, "t", 0, "set a time limiter in milliseconds; no more than a request in that time '-t 200'")
+	flag.IntVar(&timePeak, "t", timePeakEnv, "set a time limiter in milliseconds; no more than a request in that time '-t 200'")
 
 	flag.Parse()
 
@@ -45,7 +60,7 @@ func main() {
 		limiterInfo = fmt.Sprintf("concurency peak max requests %d\n", concurencyPeak)
 	}
 
-	var addr = fmt.Sprintf(":%d", port)
+	var addr = fmt.Sprintf(":%s", port)
 
 	s := &http.Server{
 		ReadTimeout:  5 * time.Second,
