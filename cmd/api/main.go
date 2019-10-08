@@ -15,9 +15,15 @@ import (
 	"github.com/innermond/packong/cmd/api/requestid"
 )
 
-func main() {
+var concurencyPeakEnv, timePeakEnv int
+var port string
+var concurencyPeak int
+var timePeak int
+var debug, debugEnv bool
 
-	var concurencyPeakEnv, timePeakEnv int
+func main() {
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+
 	{
 		var err error
 		concurencyPeakEnv, err = strconv.Atoi(env("PACKONG_CONCURENCY", "10"))
@@ -31,14 +37,14 @@ func main() {
 		}
 	}
 
-	var port string
 	flag.StringVar(&port, "p", env("PACKONG_PORT", "2222"), "set port number '-p <port number>'")
 
-	var concurencyPeak int
 	flag.IntVar(&concurencyPeak, "c", concurencyPeakEnv, "set connections concurency maximum limit '-c 20'")
 
-	var timePeak int
 	flag.IntVar(&timePeak, "t", timePeakEnv, "set a time limiter in milliseconds; no more than a request in that time '-t 200'")
+
+	_, debugEnv := os.LookupEnv("PACKONG_DEBUG")
+	flag.BoolVar(&debug, "debug", debugEnv, "debug mode '-debug'")
 
 	flag.Parse()
 
@@ -72,6 +78,7 @@ func main() {
 	log.Println(
 		"\nmain: starting server\n" +
 			fmt.Sprintf("address %s\n", addr) +
+			fmt.Sprintf("debug %v\n", debug) +
 			limiterInfo,
 	)
 

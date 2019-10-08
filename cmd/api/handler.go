@@ -8,7 +8,6 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -62,16 +61,18 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 			msg  string
 			code int
 		)
-		switch fail.(type) {
-		case *json.SyntaxError:
-			msg = "json syntax malformation"
-			code = 400 // bad request
-		default:
-			msg = "invalid data"
-			code = 422 // unprocessable entity
-		}
-		if werr(w, err.wrap(fail, "fail decoding json input"), code, msg) {
-			return
+		if fail != nil {
+			switch fail.(type) {
+			case *json.SyntaxError:
+				msg = "json syntax malformation"
+				code = 400 // bad request
+			default:
+				msg = "invalid data"
+				code = 422 // unprocessable entity
+			}
+			if werr(w, err.wrap(fail, "fail decoding json input"), code, msg) {
+				return
+			}
 		}
 		defer r.Body.Close()
 	}
@@ -191,16 +192,16 @@ func werr(w http.ResponseWriter, err error, code int, msg string) bool {
 		return false
 	}
 
-	_, debug := os.LookupEnv("PACKONG_DEBUG")
-	// for debugging
-	if x, ok := err.(errid); ok && debug {
-		log.Printf("%v %+v\n", x.reqid, x.err)
-	}
+	if debug {
+		// for debugging
+		if x, ok := err.(errid); ok {
+			log.Printf("%v\t%+v\n", x.reqid, x.err)
+		}
 
-	if !debug {
+	} else {
 		// for logging
 		err = errors.Cause(err)
-		log.Printf("werr: %v", err)
+		log.Printf("%+v", err)
 	}
 
 	// for client

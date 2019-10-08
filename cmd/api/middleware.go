@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/innermond/packong/cmd/api/requestid"
+	"github.com/tomasen/realip"
 )
 
 func limiter(f http.HandlerFunc, max int) http.HandlerFunc {
@@ -53,11 +54,11 @@ func logRequest(f http.HandlerFunc) http.HandlerFunc {
 		f(w, r)
 
 		// log request by who(IP address)
-		ip := r.RemoteAddr
+		ip := realip.FromRequest(r)
 		id := getid(r)
 
 		log.Printf(
-			"%s\t%s\t%s\t%s\t%v",
+			"%s:\t%s\t%s\t%s\t%v",
 			id,
 			r.Method,
 			r.RequestURI,

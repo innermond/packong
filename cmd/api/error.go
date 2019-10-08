@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/pkg/errors"
 )
@@ -13,10 +12,14 @@ type errid struct {
 }
 
 func (e errid) wrap(cause error, txt string) error {
-	err := errors.WithMessage(cause, txt)
-	if _, debug := os.LookupEnv("PACKONG_DEBUG"); debug {
+	var err error
+
+	if debug {
 		err = errors.Wrap(cause, txt)
+	} else {
+		err = errors.WithMessage(cause, txt)
 	}
+
 	e.err = err
 	return e
 }
