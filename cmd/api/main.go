@@ -9,11 +9,14 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/innermond/packong/cmd/api/requestid"
 )
+
+var serverHealth int32
 
 var concurencyPeakEnv, timePeakEnv int
 var port string
@@ -22,7 +25,7 @@ var timePeak int
 var debug, debugEnv bool
 
 func main() {
-	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	log.SetFlags(log.Lshortfile)
 
 	{
 		var err error
@@ -38,14 +41,10 @@ func main() {
 	}
 
 	flag.StringVar(&port, "p", env("PACKONG_PORT", "2222"), "set port number '-p <port number>'")
-
 	flag.IntVar(&concurencyPeak, "c", concurencyPeakEnv, "set connections concurency maximum limit '-c 20'")
-
 	flag.IntVar(&timePeak, "t", timePeakEnv, "set a time limiter in milliseconds; no more than a request in that time '-t 200'")
-
 	_, debugEnv := os.LookupEnv("PACKONG_DEBUG")
 	flag.BoolVar(&debug, "debug", debugEnv, "debug mode '-debug'")
-
 	flag.Parse()
 
 	param()
@@ -75,13 +74,7 @@ func main() {
 		Addr:         addr,
 		Handler:      fn,
 	}
-	log.Println(
-		"\nmain: starting server\n" +
-			fmt.Sprintf("address %s\n", addr) +
-			fmt.Sprintf("debug %v\n", debug) +
-			limiterInfo,
-	)
-
+	log.Printf("address %s; debug %v; %s", addr, debug, limiterInfo)
 	// ctrl+c
 	done := make(chan struct{}, 1)
 
@@ -91,7 +84,7 @@ func main() {
 	go func() {
 		// wait for closing signal
 		<-quit
-
+		atomic.StoreInt32(&serverHealth, 0)
 		log.Print("server shutting down...")
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -106,6 +99,7 @@ func main() {
 		close(done)
 	}()
 
+	atomic.StoreInt32(&serverHealth, 1)
 	// blocks here doing serving
 	err := s.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {

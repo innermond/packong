@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/innermond/packong"
@@ -23,6 +25,12 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "sniff")
 	w.Header().Set("Content-Type", "application/json")
 
+	if r.Method == http.MethodGet && r.URL.Path == "/api/v1/health" {
+		defer r.Body.Close()
+		fmt.Fprintf(w, "%v", atomic.LoadInt32(&serverHealth) == 1)
+		return
+	}
+
 	rid := getid(r)
 	var err = errid{reqid: rid}
 
@@ -33,7 +41,8 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.URL.Path != "/" {
+	// only 2 endpoints
+	if r.URL.Path != "/api/v1" {
 		werr(w, err.text("fitboxes: resource not found"), 404, "not found")
 		return
 	}

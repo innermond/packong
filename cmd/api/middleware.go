@@ -51,19 +51,25 @@ func logRequest(f http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		f(w, r)
-
 		// log request by who(IP address)
 		ip := realip.FromRequest(r)
 		id := getid(r)
 
 		log.Printf(
-			"%s:\t%s\t%s\t%s\t%v",
+			"%s:\t%s\t%s\t%s -START",
 			id,
 			r.Method,
 			r.RequestURI,
 			ip,
+		)
+
+		f(w, r)
+
+		log.Printf(
+			"%s:\t%v -END",
+			id,
 			time.Since(start),
 		)
+
 	}
 }
