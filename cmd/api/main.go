@@ -18,6 +18,9 @@ import (
 
 var serverHealth int32
 
+const API_VERSION = "1"
+const API_PATH = "/api/v" + API_VERSION
+
 var concurencyPeakEnv, timePeakEnv int
 var port string
 var concurencyPeak int
@@ -58,10 +61,10 @@ func main() {
 	fn = reqid(logRequest(fitboxes))
 
 	if timePeak > 0 {
-		fn = limiterByTime(http.HandlerFunc(fn), timePeak)
+		fn = limiterByTime(fn, timePeak)
 		limiterInfo = fmt.Sprintf("concurency peak one request in time %d\n", timePeak)
 	} else {
-		fn = limiter(http.HandlerFunc(fn), concurencyPeak)
+		fn = limiter(fn, concurencyPeak)
 		limiterInfo = fmt.Sprintf("concurency peak max requests %d\n", concurencyPeak)
 	}
 
@@ -72,7 +75,7 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  100 * time.Second,
 		Addr:         addr,
-		Handler:      fn,
+		Handler:      http.HandlerFunc(fn),
 	}
 	log.Printf("address %s; debug %v; %s", addr, debug, limiterInfo)
 	// ctrl+c

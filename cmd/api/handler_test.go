@@ -12,6 +12,8 @@ func Test_fitboxes(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(fitboxes))
 	defer ts.Close()
 
+	ts.URL += API_PATH
+
 	type test struct {
 		data   string
 		status int

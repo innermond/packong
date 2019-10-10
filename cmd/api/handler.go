@@ -25,7 +25,8 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "sniff")
 	w.Header().Set("Content-Type", "application/json")
 
-	if r.Method == http.MethodGet && r.URL.Path == "/api/v1/health" {
+	urlpath := strings.TrimRight(r.URL.Path, "/")
+	if r.Method == http.MethodGet && urlpath == API_PATH+"/health" {
 		defer r.Body.Close()
 		fmt.Fprintf(w, "%v", atomic.LoadInt32(&serverHealth) == 1)
 		return
@@ -42,7 +43,7 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// only 2 endpoints
-	if r.URL.Path != "/api/v1" {
+	if urlpath != API_PATH {
 		werr(w, err.text("fitboxes: resource not found"), 404, "not found")
 		return
 	}
