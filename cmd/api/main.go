@@ -77,7 +77,7 @@ func main() {
 		Addr:         addr,
 		Handler:      http.HandlerFunc(fn),
 	}
-	log.Printf("address %s; debug %v; %s", addr, debug, limiterInfo)
+	log.Printf("api version: %s; address: %s; debug: %v; %s", API_VERSION, addr, debug, limiterInfo)
 	// ctrl+c
 	done := make(chan struct{}, 1)
 

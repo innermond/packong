@@ -54,7 +54,7 @@ type Op struct {
 	// mu - material used, a price that reflects man's work
 	// ml - material lost, a price regarding raw material - that's it it doesn't contains man's work
 	// pp - perimeter price, a price connected with number of cuts needed for breaking big sheet to needed pieces
-	// pd - move on the spot price
+	// pd - price of moving to location
 	mu, ml, pp, pd float64
 
 	// it considers lost material as valuable as used material

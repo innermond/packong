@@ -12,6 +12,8 @@ func Test_fitboxes(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(fitboxes))
 	defer ts.Close()
 
+	// if you are not interested in ports
+	// ibut only to set the paths
 	ts.URL += API_PATH
 
 	type test struct {
