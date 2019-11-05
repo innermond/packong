@@ -32,7 +32,7 @@ func Start(w float64, h float64, unit string, plain bool) string {
 
 func StartWeb(w float64, h float64, plain bool) string {
 	s := svgtop +
-		" style=\"positon:a0bsolute;width:100%;height:100%;\" preserveAspectRatio=\"xMidYMid meet\" " +
+		" style=\"positon:absolute;width:100%;height:100%;\" preserveAspectRatio=\"xMidYMid meet\" " +
 		fmt.Sprintf(vbfmt, 0.0, 0.0, w, h) + svgns
 	if plain == false {
 		s += svgnsinkscape

@@ -25,9 +25,14 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "sniff")
 	w.Header().Set("Content-Type", "application/json")
 
+	defer r.Body.Close()
+
 	urlpath := strings.TrimRight(r.URL.Path, "/")
+	if !strings.HasPrefix(urlpath, API_PATH) {
+		http.NotFound(w, r)
+		return
+	}
 	if r.Method == http.MethodGet && urlpath == API_PATH+"/health" {
-		defer r.Body.Close()
 		fmt.Fprintf(w, "%v", atomic.LoadInt32(&serverHealth) == 1)
 		return
 	}
@@ -84,7 +89,6 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		defer r.Body.Close()
 	}
 
 	// unique name
