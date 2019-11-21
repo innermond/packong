@@ -441,14 +441,15 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 		boxes = remaining[:]
 
 		if op.outname != "" {
-			func(inx int, boxes []*pak.Box) {
+			// vendoredLength is a fraction associated with inx cycle from cummulative vendoredLength
+			func(inx int, boxes []*pak.Box, vendoredLengthForInx float64) {
 				fn := fmt.Sprintf("%s.%d.%s.svg", op.outname, inx, strategyName)
 
 				var s string
 				if op.outweb {
-					s = svg.StartWeb(op.width, vendoredLength+op.topleftmargin, op.plain)
+					s = svg.StartWeb(op.width, vendoredLengthForInx+op.topleftmargin, op.plain)
 				} else {
-					s = svg.Start(op.width, vendoredLength+op.topleftmargin, op.unit, op.plain)
+					s = svg.Start(op.width, vendoredLengthForInx+op.topleftmargin, op.unit, op.plain)
 				}
 				si, err := svg.Out(boxes, op.topleftmargin, op.width, op.plain, op.showDim, op.outline)
 				if err != nil {
@@ -456,7 +457,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 				}
 				s += svg.End(si)
 				fnOutput = append(fnOutput, FitReader{fn: strings.NewReader(s)})
-			}(inx, bin.Boxes[:])
+			}(inx, bin.Boxes[:], vendoredLength)
 		}
 	}
 	return []float64{usedArea, vendoredArea, vendoredLength, boxesArea, boxesPerim, float64(inx)}, done, remaining, fnOutput
