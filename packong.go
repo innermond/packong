@@ -371,7 +371,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 		bin := pak.NewBin(op.width, op.height, strategy)
 		remaining = []*pak.Box{}
 		maxx, maxy := 0.0, 0.0
-		vendoredArea, vendoredLength = 0.0, 0.0
+		//vendoredArea, vendoredLength = 0.0, 0.0
 		// pack boxes into bin
 		for _, box := range boxes {
 			if !bin.Insert(box) {
