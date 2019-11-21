@@ -310,7 +310,7 @@ func (op *Op) BoxesFromString() (boxes []*pak.Box, err error) {
 		if err != nil {
 			return nil, err
 		} else if w <= 0 {
-			err = fmt.Errorf("greater than zero condition; received %q", w)
+			err = fmt.Errorf("greater than zero condition; received %f", w)
 			return nil, err
 		}
 
@@ -318,7 +318,7 @@ func (op *Op) BoxesFromString() (boxes []*pak.Box, err error) {
 		if err != nil {
 			return nil, err
 		} else if h <= 0 {
-			err = fmt.Errorf("greater than zero condition; received %q", h)
+			err = fmt.Errorf("greater than zero condition; received %f", h)
 			return nil, err
 		}
 
@@ -329,7 +329,7 @@ func (op *Op) BoxesFromString() (boxes []*pak.Box, err error) {
 			err = fmt.Errorf("greater than zero condition; received %q", n)
 			return nil, err
 		} else if n > 50 {
-			err = fmt.Errorf("lesser than peak condition; received %q", w)
+			err = fmt.Errorf("lesser than peak condition; received %f", w)
 			return nil, err
 		}
 
@@ -371,7 +371,8 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 		bin := pak.NewBin(op.width, op.height, strategy)
 		remaining = []*pak.Box{}
 		maxx, maxy := 0.0, 0.0
-		//vendoredArea, vendoredLength = 0.0, 0.0
+		// partials metrics per cycle
+		vendoredAreaForInx, vendoredLengthForInx := 0.0, 0.0
 		// pack boxes into bin
 		for _, box := range boxes {
 			if !bin.Insert(box) {
@@ -423,13 +424,16 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 			maxy = op.height
 		}
 
-		usedArea += (maxx * maxy)
+		vendoredAreaForInx = (maxx * maxy)
+		usedArea += vendoredAreaForInx
 		if op.vendorsellint {
 			// vendors sells integers so convert the maxy into meters, find closest integer and then convert to mm
-			vendoredArea += math.Ceil(maxy/op.k) * op.k * maxx
+			vendoredAreaForInx = math.Ceil(maxy/op.k) * op.k * maxx
+			vendoredArea += vendoredAreaForInx
 		} else {
 			vendoredArea = usedArea
 		}
+		vendoredLengthForInx = vendoredAreaForInx / op.width
 		vendoredLength = vendoredArea / op.width
 
 		inx++
@@ -457,7 +461,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 				}
 				s += svg.End(si)
 				fnOutput = append(fnOutput, FitReader{fn: strings.NewReader(s)})
-			}(inx, bin.Boxes[:], vendoredLength)
+			}(inx, bin.Boxes[:], vendoredLengthForInx)
 		}
 	}
 	return []float64{usedArea, vendoredArea, vendoredLength, boxesArea, boxesPerim, float64(inx)}, done, remaining, fnOutput
