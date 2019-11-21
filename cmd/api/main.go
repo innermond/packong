@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"crypto/tls"
 
 	"github.com/innermond/packong/cmd/api/requestid"
 )
@@ -69,12 +70,25 @@ func main() {
 	}
 
 	var addr = fmt.Sprintf(":%s", port)
+	cfg := &tls.Config{
+		MinVersion:               tls.VersionTLS12,
+		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+		PreferServerCipherSuites: true,
+		CipherSuites: []uint16{
+		    tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		    tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+		    tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+		    tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+               },
+        }
 
 	s := &http.Server{
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  100 * time.Second,
 		Addr:         addr,
+	        TLSConfig:    cfg,
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 		Handler:      http.HandlerFunc(fn),
 	}
 	log.Printf("api version: %s; address: %s; debug: %v; %s", API_VERSION, addr, debug, limiterInfo)
@@ -104,7 +118,9 @@ func main() {
 
 	atomic.StoreInt32(&serverHealth, 1)
 	// blocks here doing serving
-	err := s.ListenAndServe()
+	certfile:="./cert.pem"
+	privkey:="./privkey.pem"
+	err := s.ListenAndServeTLS(certfile, privkey)
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}

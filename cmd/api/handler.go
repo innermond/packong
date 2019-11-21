@@ -19,11 +19,6 @@ import (
 )
 
 func fitboxes(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "http://0.0.0.0:8000")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-	w.Header().Set("X-Content-Type-Options", "sniff")
-	w.Header().Set("Content-Type", "application/json")
 
 	defer r.Body.Close()
 
@@ -36,6 +31,12 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "%v", atomic.LoadInt32(&serverHealth) == 1)
 		return
 	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "https://www.printuridigital.ro")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	w.Header().Set("X-Content-Type-Options", "sniff")
+	w.Header().Set("Content-Type", "application/json")
 
 	rid := getid(r)
 	var err = errid{reqid: rid}
