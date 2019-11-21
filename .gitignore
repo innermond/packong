@@ -24,3 +24,7 @@ dev
 
 # executable
 packong
+api
+
+# cert
+*.pem
