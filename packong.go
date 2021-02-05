@@ -339,7 +339,8 @@ func (op *Op) BoxesFromString() (boxes []*pak.Box, err error) {
 		}
 
 		for n != 0 {
-			boxes = append(boxes, &pak.Box{W: w + op.cutwidth, H: h + op.cutwidth, CanRotate: r})
+			var val = &pak.Box{W: w + op.cutwidth, H: h + op.cutwidth, CanRotate: r}
+			boxes = append(boxes, val)
 			n--
 		}
 
@@ -375,13 +376,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 		vendoredAreaForInx, vendoredLengthForInx := 0.0, 0.0
 		// pack boxes into bin
 		for _, box := range boxes {
-			if !bin.Insert(box) {
-				remaining = append(remaining, box)
-				// cannot insert skyp to next box
-				continue
-			}
-			done = append(done, box)
-
+			// cutwidth acts like a padding enlarging boxes
 			if op.topleftmargin == 0.0 {
 				// all boxes touching top or left edges will need a half expand
 				if box.X == 0.0 && box.Y == 0.0 { // top left box
@@ -402,6 +397,12 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 				box.X += op.topleftmargin
 				box.Y += op.topleftmargin
 			}
+			if !bin.Insert(box) {
+				remaining = append(remaining, box)
+				// cannot insert skyp to next box
+				continue
+			}
+			done = append(done, box)
 
 			boxesArea += (box.W * box.H)
 			boxesPerim += 2 * (box.W + box.H)
@@ -455,7 +456,7 @@ func (op *Op) matchboxes(strategyName string, strategy *pak.Base, boxes []*pak.B
 				} else {
 					s = svg.Start(op.width, vendoredLengthForInx+op.topleftmargin, op.unit, op.plain)
 				}
-				si, err := svg.Out(boxes, op.topleftmargin, op.width, op.plain, op.showDim, op.outline)
+				si, err := svg.Out(boxes, op.cutwidth, op.topleftmargin, op.width, op.unit, op.plain, op.showDim, op.outline)
 				if err != nil {
 					return
 				}

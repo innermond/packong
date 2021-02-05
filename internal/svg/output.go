@@ -24,7 +24,7 @@ func style(fill string, outline bool) string {
 	return fill
 }
 
-func Out(blocks []*pak.Box, topleftmargin float64, widthSvg float64, plain bool, showDim bool, outline bool) (string, error) {
+func Out(blocks []*pak.Box, cutwidth float64, topleftmargin float64, widthSvg float64, unit string, plain bool, showDim bool, outline bool) (string, error) {
 	if len(blocks) == 0 {
 		return "", errors.New("no blocks")
 	}
@@ -86,7 +86,7 @@ func Out(blocks []*pak.Box, topleftmargin float64, widthSvg float64, plain bool,
 		}
 		for _, blk := range blocks {
 			if blk != nil {
-				x := fmt.Sprintf("%.2fx%.2f", blk.W, blk.H)
+				x := fmt.Sprintf("%.2fx%.2f", blk.W-0.5*cutwidth, blk.H-0.5*cutwidth)
 				if blk.Rotated {
 					x += "xR"
 				}
@@ -94,25 +94,79 @@ func Out(blocks []*pak.Box, topleftmargin float64, widthSvg float64, plain bool,
 				yt := blk.Y + blk.H/2
 				rotation := ""
 				lendim := blk.W
-				lenx := float64(len(x))
+				// 4 represent 2 decimal points and 2 white spaces of a _number.decimalsxnumber.decimals_
+				// that should be fit in lendim
+				lenx := float64(len(x) + 4.0)
 				if blk.H > blk.W {
 					rotation = fmt.Sprintf(" transform=\"rotate(90, %.2f,%.2f)\" ", xt, yt)
 					lendim = blk.H
 				}
-				// assume height of a letter si 2 than its width
+				// assume height of a letter is 2 than its width
 				// assume 16px represents 100%
-				y := (2.0 * math.Floor(lendim/lenx) / 16)
-				if y > 2.5 {
-					y = 2.5 // assume height of 250% is universally readable
-				}
-				y *= 100
+				y := 0.5 * math.Floor(lendim/lenx)
 				gt += Text(xt, yt, rotation,
-					x, "text-anchor:middle;font-size:"+fmt.Sprintf("%.2f%%", y)+";fill:#000")
+					x, "text-anchor:middle;font-size:"+fmt.Sprintf("%.2f%s", y, unit)+";fill:#000")
 			} else {
 				return "", errors.New("unexpected unfit block")
 			}
 		}
 		gt = GroupEnd(gt)
 	}
-	return gb + gt, nil
+
+	gi := ""
+	var d float64 = cutwidth * 0.25
+	if d != 0.0 {
+		d2 := 2 * d
+
+		gi = GroupStart("id=\"real_blocks\"")
+		if !plain {
+			gi = GroupStart("id=\"real_blocks\"", "inkscape:label=\"real_blocks\"", "inkscape:groupmode=\"layer\"")
+		}
+
+		// first block
+		blk := blocks[0]
+		gi += Rect(blk.X+d,
+			blk.Y+d,
+			blk.W-d2,
+			blk.H-d2,
+			style("fill:white;stroke:none", outline),
+		)
+
+		for _, blk := range blocks[1:] {
+			if blk != nil {
+				// blocks on the top edge must be shortened on height by a expand = half cutwidth
+				if blk.Y == topleftmargin {
+					gi += Rect(blk.X+d,
+						blk.Y+d,
+						blk.W-d2,
+						blk.H-d2,
+						style("fill:white;stroke:none", outline),
+					)
+					continue
+				}
+				// blocks on the left edge must be shortened on width by a expand = half cutwidth
+				if blk.X == topleftmargin {
+					gi += Rect(blk.X+d,
+						blk.Y+d,
+						blk.W-d2,
+						blk.H-d2,
+						style("fill:white;stroke:none", outline),
+					)
+					continue
+				}
+				// blocks that do not touch any big box edges keeps their expanded dimensions
+				gi += Rect(blk.X+d,
+					blk.Y+d,
+					blk.W-d2,
+					blk.H-d2,
+					style("fill:white;stroke:none", outline),
+				)
+			} else {
+				return "", errors.New("unexpected unfit block")
+			}
+		}
+		gi = GroupEnd(gi)
+	}
+
+	return gb + gi + gt, nil
 }

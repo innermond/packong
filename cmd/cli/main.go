@@ -65,7 +65,7 @@ func param() error {
 	flag.Float64Var(&mu, "mu", 15.0, "used material price per 1 square meter")
 	flag.Float64Var(&ml, "ml", 5.0, "lost material price per 1 square meter")
 	flag.Float64Var(&pp, "pp", 0.25, "perimeter price per 1 linear meter; used for evaluating cuts price")
-	flag.Float64Var(&pd, "pd", 10, "travel price to location")
+	flag.Float64Var(&pd, "pd", 15, "travel price to location")
 	flag.Float64Var(&ph, "ph", 3.5, "man power price")
 	flag.Float64Var(&rx, "rx", 1.0, "rate exchange")
 	flag.StringVar(&rn, "rn", "eur", "currency name - it will be used in reports")
@@ -147,6 +147,7 @@ func main() {
 	op := packong.NewOp(width, height, dimensions, unit).
 		Outname(outname).
 		Appearance(plain, showDim).
+		Cutwidth(cutwidth).
 		Price(mu, ml, pp, pd).
 		Greedy(greedy).
 		VendorSellInt(vendorsellint)
