@@ -43,6 +43,7 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 		origin = r.RemoteAddr
 	}
 	origin = strings.TrimSpace(origin)
+	origin = strings.TrimSuffix(origin, "/")
 
 	if _, found := allowed[origin]; found {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
