@@ -33,10 +33,21 @@ func fitboxes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	allowed := map[string]bool{"https://www.printuridigital.ro": true, "https://printuridigital.ro": true}
-	origin := r.Header.Get("Origin")
+
+	var origin string
+	if r.Header.Get("Origin") != "" {
+		origin = r.Header.Get("Origin")
+	} else if r.Header.Get("Referer") != "" {
+		origin = r.Header.Get("Referer")
+	} else {
+		origin = r.RemoteAddr
+	}
+	origin = strings.TrimSpace(origin)
+
 	if _, found := allowed[origin]; found {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 	}
+
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 	w.Header().Set("X-Content-Type-Options", "sniff")
